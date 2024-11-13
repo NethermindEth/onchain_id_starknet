@@ -408,3 +408,143 @@ pub fn get_test_claim(setup: @IdentitySetup) -> TestClaim {
         uri: "https://example.com"
     }
 }
+
+pub fn get_claim_issuer(factory_setup: @FactorySetup) -> ContractAddress {
+    let claim_issuer_contract = declare("ClaimIssuer").unwrap().contract_class();
+    let factory_accounts_issuer = *factory_setup.accounts.claim_issuer_account.contract_address;
+    let actory_accounts_issuer_public = *factory_setup.accounts.claim_issuer_key.public_key;
+    let (claim_issuer_address, _) = claim_issuer_contract
+        .deploy(@array![factory_accounts_issuer.into()])
+        .unwrap();
+    let claim_issuer_dispatcher = ClaimIssuerABIDispatcher {
+        contract_address: claim_issuer_address
+    };
+    start_cheat_caller_address(claim_issuer_address, factory_accounts_issuer.into());
+    // register claim issuer account as claim key
+    let claim_issuer_account_address_hash = poseidon_hash_span(
+        array![factory_accounts_issuer.into()].span()
+    );
+    claim_issuer_dispatcher.add_key(claim_issuer_account_address_hash, 3, 1);
+    // register claim issuer public key as management + claim_key
+    let claim_issuer_pub_key_hash = poseidon_hash_span(
+        array![actory_accounts_issuer_public].span()
+    );
+    claim_issuer_dispatcher.add_key(claim_issuer_pub_key_hash, 1, 1);
+    claim_issuer_dispatcher.add_key(claim_issuer_pub_key_hash, 3, 1);
+    stop_cheat_caller_address(claim_issuer_address);
+
+    claim_issuer_address
+}
+
+pub fn get_claim_issuer_david(factory_setup: @FactorySetup) -> ContractAddress {
+    let claim_issuer_contract = declare("ClaimIssuer").unwrap().contract_class();
+    let factory_accounts_issuer = *factory_setup.accounts.david_account.contract_address;
+    let actory_accounts_issuer_public = *factory_setup.accounts.david_key.public_key;
+    let (claim_issuer_address, _) = claim_issuer_contract
+        .deploy(@array![factory_accounts_issuer.into()])
+        .unwrap();
+    let claim_issuer_dispatcher = ClaimIssuerABIDispatcher {
+        contract_address: claim_issuer_address
+    };
+    start_cheat_caller_address(claim_issuer_address, factory_accounts_issuer.into());
+    // register claim issuer account as claim key
+    let claim_issuer_account_address_hash = poseidon_hash_span(
+        array![factory_accounts_issuer.into()].span()
+    );
+    claim_issuer_dispatcher.add_key(claim_issuer_account_address_hash, 3, 1);
+    // register claim issuer public key as management + claim_key
+    let claim_issuer_pub_key_hash = poseidon_hash_span(
+        array![actory_accounts_issuer_public].span()
+    );
+    claim_issuer_dispatcher.add_key(claim_issuer_pub_key_hash, 1, 1);
+    claim_issuer_dispatcher.add_key(claim_issuer_pub_key_hash, 3, 1);
+    stop_cheat_caller_address(claim_issuer_address);
+
+    claim_issuer_address
+}
+pub fn get_claim_issuer_alice(factory_setup: @FactorySetup) -> ContractAddress {
+    let claim_issuer_contract = declare("ClaimIssuer").unwrap().contract_class();
+    let factory_accounts_issuer = *factory_setup.accounts.alice_account.contract_address;
+    let actory_accounts_issuer_public = *factory_setup.accounts.alice_key.public_key;
+    let (claim_issuer_address, _) = claim_issuer_contract
+        .deploy(@array![factory_accounts_issuer.into()])
+        .unwrap();
+    let claim_issuer_dispatcher = ClaimIssuerABIDispatcher {
+        contract_address: claim_issuer_address
+    };
+    start_cheat_caller_address(claim_issuer_address, factory_accounts_issuer.into());
+    // register claim issuer account as claim key
+    let claim_issuer_account_address_hash = poseidon_hash_span(
+        array![factory_accounts_issuer.into()].span()
+    );
+    claim_issuer_dispatcher.add_key(claim_issuer_account_address_hash, 3, 1);
+    // register claim issuer public key as management + claim_key
+    let claim_issuer_pub_key_hash = poseidon_hash_span(
+        array![actory_accounts_issuer_public].span()
+    );
+    claim_issuer_dispatcher.add_key(claim_issuer_pub_key_hash, 1, 1);
+    claim_issuer_dispatcher.add_key(claim_issuer_pub_key_hash, 3, 1);
+    stop_cheat_caller_address(claim_issuer_address);
+
+    claim_issuer_address
+}
+pub fn get_identity(
+    account: AccountContractDispatcher, name: felt252
+) -> (IdentityABIDispatcher, FactorySetup) {
+    let mut factory_setup = setup_factory();
+
+    start_cheat_caller_address(
+        factory_setup.identity_factory.contract_address,
+        factory_setup.accounts.owner_account.contract_address
+    );
+    factory_setup.identity_factory.create_identity(account.contract_address, name);
+    stop_cheat_caller_address(factory_setup.identity_factory.contract_address);
+
+    let identity = IdentityABIDispatcher {
+        contract_address: factory_setup.identity_factory.get_identity(account.contract_address)
+    };
+
+    start_cheat_caller_address(identity.contract_address, account.contract_address);
+    // register alice pub key as management key
+    identity
+        .add_key(
+            poseidon_hash_span(array![factory_setup.accounts.carol_key.public_key].span()), 1, 1
+        );
+    // register alice pub key as management key
+    identity
+        .add_key(
+            poseidon_hash_span(array![factory_setup.accounts.claim_issuer_key.public_key].span()),
+            1,
+            1
+        );
+
+    // register carol pub key + contract address as claim key
+    identity
+        .add_key(
+            poseidon_hash_span(
+                array![factory_setup.accounts.carol_account.contract_address.into()].span()
+            ),
+            3,
+            1
+        );
+    identity
+        .add_key(
+            poseidon_hash_span(array![factory_setup.accounts.carol_key.public_key].span()), 3, 1
+        );
+    // register david pub key + contract address as action key
+    identity
+        .add_key(
+            poseidon_hash_span(
+                array![factory_setup.accounts.david_account.contract_address.into()].span()
+            ),
+            2,
+            1
+        );
+    identity
+        .add_key(
+            poseidon_hash_span(array![factory_setup.accounts.david_key.public_key].span()), 2, 1
+        );
+    stop_cheat_caller_address(identity.contract_address);
+
+    (IdentityABIDispatcher { contract_address: identity.contract_address }, factory_setup)
+}

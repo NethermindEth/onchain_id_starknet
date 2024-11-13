@@ -98,9 +98,6 @@ pub mod VerifierComponent {
             let claim_topics_to_trusted_issuers_storage_path = self
                 .Verifier_claim_topics_to_trusted_issuers
                 .as_path();
-            if (required_claim_topics_storage_path.len() == 0) {
-                return false;
-            };
 
             for i in 0
                 ..required_claim_topics_storage_path
@@ -334,7 +331,10 @@ pub mod VerifierComponent {
                 .Verifier_trusted_issuer_claim_topics
                 .as_path()
                 .entry(trusted_issuer);
-            assert(trusted_issuer_claim_topics_storage_path.len() != 0, Errors::TRUSTED_ISSUER_DOES_NOT_EXIST);
+            assert(
+                trusted_issuer_claim_topics_storage_path.len() != 0,
+                Errors::TRUSTED_ISSUER_DOES_NOT_EXIST
+            );
             assert(claim_topics.len() > 0, Errors::ZERO_TOPICS);
             assert(claim_topics.len() <= 15, Errors::TOPIC_LENGTH_EXCEEDS_LIMIT);
 

@@ -1,16 +1,22 @@
 pub mod verify {
     use core::num::traits::Zero;
     use core::poseidon::poseidon_hash_span;
+    use onchain_id_starknet::factory::iid_factory::{
+        IIdFactoryDispatcher, IIdFactoryDispatcherTrait
+    };
     use onchain_id_starknet::interface::iverifier::VerifierABIDispatcherTrait;
 
     use onchain_id_starknet::interface::{
         iidentity::{IdentityABIDispatcher, IdentityABIDispatcherTrait},
         iimplementation_authority::IImplementationAuthorityDispatcher,
         iclaim_issuer::{ClaimIssuerABIDispatcher, ClaimIssuerABIDispatcherTrait},
+        iverifier::{VerifierABIDispatcher},
     };
     use onchain_id_starknet::storage::structs::{Signature, StarkSignature};
     use onchain_id_starknet_tests::common::{
-        setup_verifier, setup_identity, setup_factory, TestClaim, IdentitySetup, get_test_claim
+        setup_verifier, setup_identity, setup_factory, TestClaim, IdentitySetup, FactorySetup,
+        setup_accounts, get_test_claim, get_claim_issuer, get_identity, get_claim_issuer_david,
+        get_claim_issuer_alice
     };
 
     use snforge_std::{
@@ -21,18 +27,102 @@ pub mod verify {
             stark_curve::{StarkCurveKeyPairImpl, StarkCurveSignerImpl, StarkCurveVerifierImpl},
         },
     };
+    use starknet::ContractAddress;
     use starknet::account::AccountContractDispatcher;
 
+    #[test]
+    fn test_should_return_true_when_verifier_does_not_expect_claim_topics() {
+        let setup_account = setup_accounts();
+        let mock_verifier_contract = declare("MockVerifier").unwrap().contract_class();
+        let (mock_verifier_address, _) = mock_verifier_contract
+            .deploy(@array![setup_account.owner_account.contract_address.into()])
+            .unwrap();
+        let mut verifier_dispatcher = VerifierABIDispatcher {
+            contract_address: mock_verifier_address
+        };
+        let verified = verifier_dispatcher.verify(setup_account.owner_account.contract_address);
+        assert(verified, 'should be verified');
+    }
 
-    pub fn get_test_b_claim(setup: @IdentitySetup) -> TestClaim {
-        let identity = *setup.alice_identity.contract_address;
-        let issuer = identity;
-        let claim_topic = 42_felt252;
-        let claim_data = "0x0042";
+    #[test]
+    fn test_should_return_false_when_verifier_expect_one_claim_topic_but_has_no_trusted_issuer() {
+        let setup_account = setup_accounts();
+        let mock_verifier_contract = declare("MockVerifier").unwrap().contract_class();
+        let (mock_verifier_address, _) = mock_verifier_contract
+            .deploy(@array![setup_account.owner_account.contract_address.into()])
+            .unwrap();
+        let mut verifier_dispatcher = VerifierABIDispatcher {
+            contract_address: mock_verifier_address
+        };
+        start_cheat_caller_address(
+            verifier_dispatcher.contract_address, setup_account.owner_account.contract_address
+        );
+        verifier_dispatcher.add_claim_topic(666_felt252);
+        stop_cheat_caller_address(verifier_dispatcher.contract_address);
+
+        let (identity, _) = get_identity(setup_account.carol_account, 'carol');
+        let verified = verifier_dispatcher.verify(identity.contract_address);
+        assert(!verified, 'should not be verified');
+    }
+
+    #[test]
+    fn test_should_return_false_when_verifier_expect_one_claim_topic_but_has_trusted_issuer_for_another_topic() {
+        //The verifier in setup_verififer has claim_666 and a trusted issuer
+        let setup_verifier = setup_verifier();
+        let (identity, factory_setup) = get_identity(
+            setup_verifier.accounts.carol_account, 'carol'
+        );
+
+        let claim_issuer = get_claim_issuer(@factory_setup);
+        start_cheat_caller_address(
+            setup_verifier.mock_verifier.contract_address,
+            setup_verifier.accounts.owner_account.contract_address
+        );
+        setup_verifier.mock_verifier.add_trusted_issuer(claim_issuer, array![888_felt252]);
+        stop_cheat_caller_address(setup_verifier.mock_verifier.contract_address);
+
+        let verified = setup_verifier.mock_verifier.verify(identity.contract_address);
+
+        assert(!verified, 'should not be verified');
+    }
+
+    #[test]
+    fn test_should_return_false_when_verifier_expect_one_claim_topic_and_has_trusted_issuer_for_topic_when_identity_does_not_have_the_claim() {
+        let setup_verifier = setup_verifier();
+        let (identity, factory_setup) = get_identity(
+            setup_verifier.accounts.carol_account, 'carol'
+        );
+
+        let claim_issuer = get_claim_issuer(@factory_setup);
+
+        start_cheat_caller_address(
+            setup_verifier.mock_verifier.contract_address,
+            setup_verifier.accounts.owner_account.contract_address
+        );
+        setup_verifier.mock_verifier.add_trusted_issuer(claim_issuer, array![666_felt252]);
+        stop_cheat_caller_address(setup_verifier.mock_verifier.contract_address);
+        let verified = setup_verifier.mock_verifier.verify(identity.contract_address);
+
+        assert(!verified, 'should not be verified');
+    }
+    #[test]
+    fn test_should_return_false_when_identity_does_not_have_valid_expected_claim() {
+        let setup_verifier = setup_verifier();
+        let (identity, factory_setup) = get_identity(
+            setup_verifier.accounts.carol_account, 'carol'
+        );
+
+        let claim_issuer = get_claim_issuer(@factory_setup);
+        start_cheat_caller_address(
+            identity.contract_address, setup_verifier.accounts.carol_account.contract_address
+        );
+        let claim_topic = 666_felt252;
+        let issuer = claim_issuer;
+        let claim_data = "0x00666";
         let claim_id = poseidon_hash_span(array![issuer.into(), claim_topic].span());
 
         let mut serialized_claim_to_sign: Array<felt252> = array![];
-        identity.serialize(ref serialized_claim_to_sign);
+        identity.contract_address.serialize(ref serialized_claim_to_sign);
         claim_topic.serialize(ref serialized_claim_to_sign);
         claim_data.serialize(ref serialized_claim_to_sign);
 
@@ -40,323 +130,439 @@ pub mod verify {
             array!['Starknet Message', poseidon_hash_span(serialized_claim_to_sign.span())].span()
         );
 
-        let (r, s) = (*setup.accounts.alice_key).sign(hashed_claim).unwrap();
-        TestClaim {
+        let (r, s) = factory_setup.accounts.claim_issuer_key.sign(hashed_claim).unwrap();
+
+        let claim_666 = TestClaim {
             claim_id,
-            identity,
-            issuer: identity,
+            identity: identity.contract_address,
+            issuer: claim_issuer,
             topic: claim_topic,
             scheme: 1,
             data: claim_data,
             signature: Signature::StarkSignature(
-                StarkSignature { r, s, public_key: *setup.accounts.alice_key.public_key }
+                StarkSignature {
+                    r, s, public_key: factory_setup.accounts.claim_issuer_key.public_key
+                }
             ),
             uri: "https://example.com"
-        }
-    }
-
-    #[test]
-    fn test_should_return_true_when_verifier_does_expect_claim_topics() {
-        let setup_verifier = setup_verifier();
-        let setup_identity = setup_identity();
-
-        //add the issuer as trusted
-        start_cheat_caller_address(
-            setup_verifier.mock_verifier.contract_address,
-            setup_verifier.accounts.owner_account.contract_address
-        );
-        setup_verifier
-            .mock_verifier
-            .add_trusted_issuer(
-                setup_identity.claim_issuer.contract_address.into(),
-                array![setup_identity.alice_claim_666.topic]
-            );
-        stop_cheat_caller_address(setup_verifier.mock_verifier.contract_address);
-
-        start_cheat_caller_address(
-            setup_identity.accounts.alice_account.contract_address,
-            setup_verifier.accounts.owner_account.contract_address
-        );
-
-        let verified = setup_verifier
-            .mock_verifier
-            .verify(setup_identity.alice_identity.contract_address);
-        stop_cheat_caller_address(setup_identity.accounts.alice_account.contract_address);
-        assert(verified, 'false but it should be true');
-    }
-
-    #[test]
-    fn test_should_return_false_when_verifier_expect_one_claim_topic_but_has_no_trusted_issuer() {
-        let setup_verifier = setup_verifier();
-        let setup_identity = setup_identity();
-
-        //The claim topic has no trusted issuer
-        start_cheat_caller_address(
-            setup_identity.accounts.alice_account.contract_address,
-            setup_verifier.accounts.owner_account.contract_address
-        );
-
-        let verified = setup_verifier
-            .mock_verifier
-            .verify(setup_identity.alice_identity.contract_address);
-        stop_cheat_caller_address(setup_identity.accounts.alice_account.contract_address);
-        assert(!verified, 'true but it should be false');
-    }
-
-    #[test]
-    fn test_should_return_false_when_verifier_expect_one_claim_topic_but_has_trusted_issuer_for_another_topic() {
-        let setup_verifier = setup_verifier();
-        let setup_identity = setup_identity();
-
-        //add the issuer as trusted but for a different topic
-        start_cheat_caller_address(
-            setup_verifier.mock_verifier.contract_address,
-            setup_verifier.accounts.owner_account.contract_address
-        );
-        setup_verifier
-            .mock_verifier
-            .add_trusted_issuer(
-                setup_identity.claim_issuer.contract_address.into(), array!['some other topic']
-            );
-        stop_cheat_caller_address(setup_verifier.mock_verifier.contract_address);
-
-        start_cheat_caller_address(
-            setup_identity.accounts.alice_account.contract_address,
-            setup_verifier.accounts.owner_account.contract_address
-        );
-
-        let verified = setup_verifier
-            .mock_verifier
-            .verify(setup_identity.alice_identity.contract_address);
-        stop_cheat_caller_address(setup_identity.accounts.alice_account.contract_address);
-        assert(!verified, 'true but it should be false');
-    }
-
-    #[test]
-    fn test_should_return_false_when_verifier_expect_one_claim_topic_and_has_trusted_issuer_for_topic_when_identity_does_not_have_the_claim() {
-        let setup_verifier = setup_verifier();
-        let setup_identity = setup_identity();
-
-        start_cheat_caller_address(
-            setup_verifier.mock_verifier.contract_address,
-            setup_verifier.accounts.owner_account.contract_address
-        );
-        //first remove all claim_topics
-        let topics = setup_verifier.mock_verifier.get_claim_topics();
-        for topic in topics {
-            setup_verifier.mock_verifier.remove_claim_topic(topic);
         };
 
-        // let the verifier expect a topic which alice has no
-        setup_verifier.mock_verifier.add_claim_topic('some other topic');
-        //add the issuer as trusted but for a topic wich alice has no
-
-        setup_verifier
-            .mock_verifier
-            .add_trusted_issuer(
-                setup_identity.claim_issuer.contract_address.into(), array!['some other topic']
+        identity
+            .add_claim(
+                claim_666.topic,
+                claim_666.scheme,
+                claim_666.issuer,
+                claim_666.signature,
+                claim_666.data.clone(),
+                claim_666.uri.clone()
             );
-        stop_cheat_caller_address(setup_verifier.mock_verifier.contract_address);
+        stop_cheat_caller_address(identity.contract_address);
 
-        start_cheat_caller_address(
-            setup_identity.accounts.alice_account.contract_address,
-            setup_verifier.accounts.owner_account.contract_address
-        );
-
-        let verified = setup_verifier
-            .mock_verifier
-            .verify(setup_identity.alice_identity.contract_address);
-        stop_cheat_caller_address(setup_identity.accounts.alice_account.contract_address);
-        assert(!verified, 'true but it should be false');
-    }
-    #[test]
-    fn test_should_return_false_when_identity_does_not_have_valid_expected_claim() {
-        let setup = setup_identity();
-        let factory_setup = setup_factory();
-
-        let setup_verifier = setup_verifier();
-
-        //add trusted_issuer for the claim
         start_cheat_caller_address(
             setup_verifier.mock_verifier.contract_address,
             setup_verifier.accounts.owner_account.contract_address
         );
-        setup_verifier
-            .mock_verifier
-            .add_trusted_issuer(
-                setup.claim_issuer.contract_address.into(), array![setup.alice_claim_666.topic]
-            );
+        setup_verifier.mock_verifier.add_trusted_issuer(claim_issuer, array![666_felt252]);
         stop_cheat_caller_address(setup_verifier.mock_verifier.contract_address);
 
-        //revoke the signature so that it becomes invalid
-        start_cheat_caller_address(
-            setup.claim_issuer.contract_address,
-            setup.accounts.claim_issuer_account.contract_address
-        );
-        setup.claim_issuer.revoke_claim_by_signature(setup.alice_claim_666.signature);
-        stop_cheat_caller_address(setup.claim_issuer.contract_address);
+        let claim_issuer_dispatcher = ClaimIssuerABIDispatcher { contract_address: claim_issuer };
+        start_cheat_caller_address(claim_issuer_dispatcher.contract_address, claim_issuer);
+        claim_issuer_dispatcher.revoke_claim_by_signature(claim_666.signature);
+        stop_cheat_caller_address(claim_issuer_dispatcher.contract_address);
+        let verified = setup_verifier.mock_verifier.verify(identity.contract_address);
 
-        start_cheat_caller_address(
-            setup.accounts.alice_account.contract_address,
-            setup_verifier.accounts.owner_account.contract_address
-        );
-        let verified = setup_verifier.mock_verifier.verify(setup.alice_identity.contract_address);
-        stop_cheat_caller_address(setup.accounts.alice_account.contract_address);
         assert(!verified, 'true but it should be false');
     }
     #[test]
     fn test_should_return_true_when_identity_has_valid_expected_claim() {
-        let setup = setup_identity();
         let setup_verifier = setup_verifier();
+        let (identity, factory_setup) = get_identity(
+            setup_verifier.accounts.carol_account, 'carol'
+        );
 
-        //add the issuer as trusted and verify it
+        let claim_issuer = get_claim_issuer(@factory_setup);
+        start_cheat_caller_address(
+            identity.contract_address, setup_verifier.accounts.carol_account.contract_address
+        );
+        let claim_topic = 666_felt252;
+        let issuer = claim_issuer;
+        let claim_data = "0x00666";
+        let claim_id = poseidon_hash_span(array![issuer.into(), claim_topic].span());
+
+        let mut serialized_claim_to_sign: Array<felt252> = array![];
+        identity.contract_address.serialize(ref serialized_claim_to_sign);
+        claim_topic.serialize(ref serialized_claim_to_sign);
+        claim_data.serialize(ref serialized_claim_to_sign);
+
+        let hashed_claim = poseidon_hash_span(
+            array!['Starknet Message', poseidon_hash_span(serialized_claim_to_sign.span())].span()
+        );
+
+        let (r, s) = factory_setup.accounts.claim_issuer_key.sign(hashed_claim).unwrap();
+
+        let claim_666 = TestClaim {
+            claim_id,
+            identity: identity.contract_address,
+            issuer: claim_issuer,
+            topic: claim_topic,
+            scheme: 1,
+            data: claim_data,
+            signature: Signature::StarkSignature(
+                StarkSignature {
+                    r, s, public_key: factory_setup.accounts.claim_issuer_key.public_key
+                }
+            ),
+            uri: "https://example.com"
+        };
+
+        identity
+            .add_claim(
+                claim_666.topic,
+                claim_666.scheme,
+                claim_666.issuer,
+                claim_666.signature,
+                claim_666.data.clone(),
+                claim_666.uri.clone()
+            );
+        stop_cheat_caller_address(identity.contract_address);
+
         start_cheat_caller_address(
             setup_verifier.mock_verifier.contract_address,
             setup_verifier.accounts.owner_account.contract_address
         );
-        setup_verifier
-            .mock_verifier
-            .add_trusted_issuer(
-                setup.claim_issuer.contract_address.into(), array![setup.alice_claim_666.topic]
-            );
+        setup_verifier.mock_verifier.add_trusted_issuer(claim_issuer, array![666_felt252]);
         stop_cheat_caller_address(setup_verifier.mock_verifier.contract_address);
+        let verified = setup_verifier.mock_verifier.verify(identity.contract_address);
 
-        start_cheat_caller_address(
-            setup.accounts.alice_account.contract_address,
-            setup_verifier.accounts.owner_account.contract_address
-        );
-
-        let verified = setup_verifier.mock_verifier.verify(setup.alice_identity.contract_address);
-        stop_cheat_caller_address(setup.accounts.alice_account.contract_address);
-        assert(verified, 'false but it should be true');
+        assert(verified, 'should be verified');
     }
 
     #[test]
     fn test_should_return_true_when_verifier_expect_multiple_claim_topic_and_allow_multiple_trusted_issuers_when_identity_is_compliant() {
-        let setup = setup_identity();
-        let factory_setup = setup_factory();
-        let test_claim = get_test_claim(@setup);
-        let test_b_claim = get_test_b_claim(@setup);
+        let setup_verifier = setup_verifier();
+        let (identity, factory_setup) = get_identity(
+            setup_verifier.accounts.carol_account, 'carol'
+        );
+
+        let claim_issuer_issuer = get_claim_issuer(@factory_setup);
+        let claim_issuer_david = get_claim_issuer_david(@factory_setup);
+        let claim_issuer_alice = get_claim_issuer_alice(@factory_setup);
 
         start_cheat_caller_address(
-            setup.alice_identity.contract_address, setup.accounts.alice_account.contract_address
+            identity.contract_address, setup_verifier.accounts.carol_account.contract_address
         );
-        setup
-            .alice_identity
+        //let the default issuer first issue topic claim_666
+
+        let claim_topic = 666_felt252;
+        let issuer = claim_issuer_issuer;
+        let claim_data = "0x00666";
+        let claim_id = poseidon_hash_span(array![issuer.into(), claim_topic].span());
+
+        let mut serialized_claim_to_sign: Array<felt252> = array![];
+        identity.contract_address.serialize(ref serialized_claim_to_sign);
+        claim_topic.serialize(ref serialized_claim_to_sign);
+        claim_data.serialize(ref serialized_claim_to_sign);
+
+        let hashed_claim = poseidon_hash_span(
+            array!['Starknet Message', poseidon_hash_span(serialized_claim_to_sign.span())].span()
+        );
+
+        let (r, s) = factory_setup.accounts.claim_issuer_key.sign(hashed_claim).unwrap();
+
+        let claim_666_issuer = TestClaim {
+            claim_id,
+            identity: identity.contract_address,
+            issuer: claim_issuer_issuer,
+            topic: claim_topic,
+            scheme: 1,
+            data: claim_data,
+            signature: Signature::StarkSignature(
+                StarkSignature {
+                    r, s, public_key: factory_setup.accounts.claim_issuer_key.public_key
+                }
+            ),
+            uri: "https://example.com"
+        };
+        let claim_topic = 666_felt252;
+        let issuer_alice = claim_issuer_alice;
+        let claim_data_alice = "0x00666";
+        let claim_id_alice = poseidon_hash_span(array![issuer_alice.into(), claim_topic].span());
+
+        let mut serialized_claim_to_sign_alice: Array<felt252> = array![];
+        identity.contract_address.serialize(ref serialized_claim_to_sign_alice);
+        claim_topic.serialize(ref serialized_claim_to_sign_alice);
+        claim_data_alice.serialize(ref serialized_claim_to_sign_alice);
+
+        let hashed_claim_alice = poseidon_hash_span(
+            array!['Starknet Message', poseidon_hash_span(serialized_claim_to_sign.span())].span()
+        );
+
+        let (r_alice, s_alice) = factory_setup.accounts.alice_key.sign(hashed_claim_alice).unwrap();
+
+        let claim_666_alice = TestClaim {
+            claim_id: claim_id_alice,
+            identity: identity.contract_address,
+            issuer: claim_issuer_alice,
+            topic: claim_topic,
+            scheme: 1,
+            data: claim_data_alice,
+            signature: Signature::StarkSignature(
+                StarkSignature {
+                    r: r_alice, s: s_alice, public_key: factory_setup.accounts.alice_key.public_key
+                }
+            ),
+            uri: "https://example.com"
+        };
+
+        let claim_topic_david = 888_felt252;
+        let issuer_david = claim_issuer_david;
+        let claim_data_david = "0x00888";
+        let claim_id_david = poseidon_hash_span(array![issuer_david.into(), claim_topic].span());
+
+        let mut serialized_claim_to_sign_david: Array<felt252> = array![];
+        identity.contract_address.serialize(ref serialized_claim_to_sign_david);
+        claim_topic_david.serialize(ref serialized_claim_to_sign_david);
+        claim_data_david.serialize(ref serialized_claim_to_sign_david);
+
+        let hashed_claim_david = poseidon_hash_span(
+            array!['Starknet Message', poseidon_hash_span(serialized_claim_to_sign_david.span())]
+                .span()
+        );
+
+        let (r_david, s_david) = factory_setup.accounts.david_key.sign(hashed_claim_david).unwrap();
+
+        let claim_888_david = TestClaim {
+            claim_id: claim_id_david,
+            identity: identity.contract_address,
+            issuer: claim_issuer_david,
+            topic: claim_topic_david,
+            scheme: 1,
+            data: claim_data_david,
+            signature: Signature::StarkSignature(
+                StarkSignature {
+                    r: r_david, s: s_david, public_key: factory_setup.accounts.david_key.public_key
+                }
+            ),
+            uri: "https://example.com"
+        };
+
+        identity
             .add_claim(
-                test_claim.topic,
-                test_claim.scheme,
-                test_claim.issuer,
-                test_claim.signature,
-                test_claim.data.clone(),
-                test_claim.uri.clone()
+                claim_666_alice.topic,
+                claim_666_alice.scheme,
+                claim_666_alice.issuer,
+                claim_666_alice.signature,
+                claim_666_alice.data.clone(),
+                claim_666_alice.uri.clone()
             );
 
-        setup
-            .alice_identity
+        identity
             .add_claim(
-                test_b_claim.topic,
-                test_b_claim.scheme,
-                test_b_claim.issuer,
-                test_b_claim.signature,
-                test_b_claim.data.clone(),
-                test_b_claim.uri.clone()
+                claim_666_issuer.topic,
+                claim_666_issuer.scheme,
+                claim_666_issuer.issuer,
+                claim_666_issuer.signature,
+                claim_666_issuer.data.clone(),
+                claim_666_issuer.uri.clone()
             );
-        stop_cheat_caller_address(setup.alice_identity.contract_address);
 
-        let setup_verifier = setup_verifier();
+        identity
+            .add_claim(
+                claim_888_david.topic,
+                claim_888_david.scheme,
+                claim_888_david.issuer,
+                claim_888_david.signature,
+                claim_888_david.data.clone(),
+                claim_888_david.uri.clone()
+            );
 
-        //add the issuer as trusted and
+        stop_cheat_caller_address(identity.contract_address);
+
         start_cheat_caller_address(
             setup_verifier.mock_verifier.contract_address,
             setup_verifier.accounts.owner_account.contract_address
         );
-        setup_verifier.mock_verifier.add_claim_topic(test_claim.topic);
-        setup_verifier
-            .mock_verifier
-            .add_trusted_issuer(
-                setup.claim_issuer.contract_address.into(),
-                array![test_b_claim.topic, test_claim.topic, setup.alice_claim_666.topic]
-            );
-        setup_verifier
-            .mock_verifier
-            .add_trusted_issuer(
-                setup.alice_identity.contract_address.into(), array![test_b_claim.topic]
-            );
+        setup_verifier.mock_verifier.add_claim_topic(888_felt252);
+        setup_verifier.mock_verifier.add_trusted_issuer(claim_issuer_issuer, array![666_felt252]);
+
+        setup_verifier.mock_verifier.add_trusted_issuer(claim_issuer_alice, array![666_felt252]);
+        setup_verifier.mock_verifier.add_trusted_issuer(claim_issuer_david, array![888_felt252]);
 
         stop_cheat_caller_address(setup_verifier.mock_verifier.contract_address);
-        //revoke the test_claim that is issued by the claim_issuer but it should be verified as the
-        //topic has issued by alice as test_b_claim.
-        start_cheat_caller_address(
-            setup.claim_issuer.contract_address,
-            setup.accounts.claim_issuer_account.contract_address
-        );
-        setup.claim_issuer.revoke_claim_by_signature(test_claim.signature);
-        stop_cheat_caller_address(setup.claim_issuer.contract_address);
 
-        start_cheat_caller_address(
-            setup.accounts.alice_account.contract_address,
-            setup_verifier.accounts.owner_account.contract_address
-        );
+        let claim_issuer_dispatcher = ClaimIssuerABIDispatcher {
+            contract_address: claim_issuer_alice
+        };
+        //lets alice revoke, however still should be valid since claim_issuer issued the same claim
+        start_cheat_caller_address(claim_issuer_dispatcher.contract_address, claim_issuer_alice);
+        claim_issuer_dispatcher.revoke_claim_by_signature(claim_666_alice.signature);
+        stop_cheat_caller_address(claim_issuer_dispatcher.contract_address);
 
-        let verified = setup_verifier.mock_verifier.verify(setup.alice_identity.contract_address);
-        stop_cheat_caller_address(setup.accounts.alice_account.contract_address);
-        assert(verified, 'false but it should be true');
+        let verified = setup_verifier.mock_verifier.verify(identity.contract_address);
+        assert(verified, 'should be verified');
     }
     #[test]
     fn test_should_return_flase_when_verifier_expect_multiple_claim_topic_and_allow_multiple_trusted_issuers_when_identity_is_not_compliant() {
-        let setup = setup_identity();
-        let factory_setup = setup_factory();
-        let test_claim = get_test_claim(@setup);
-        let test_b_claim = get_test_b_claim(@setup);
+        let setup_verifier = setup_verifier();
+        let (identity, factory_setup) = get_identity(
+            setup_verifier.accounts.carol_account, 'carol'
+        );
+
+        let claim_issuer_issuer = get_claim_issuer(@factory_setup);
+        let claim_issuer_david = get_claim_issuer_david(@factory_setup);
+        let claim_issuer_alice = get_claim_issuer_alice(@factory_setup);
 
         start_cheat_caller_address(
-            setup.alice_identity.contract_address, setup.accounts.alice_account.contract_address
+            identity.contract_address, setup_verifier.accounts.carol_account.contract_address
         );
-        setup
-            .alice_identity
+        //let the default issuer first issue topic claim_666
+
+        let claim_topic = 666_felt252;
+        let issuer = claim_issuer_issuer;
+        let claim_data = "0x00666";
+        let claim_id = poseidon_hash_span(array![issuer.into(), claim_topic].span());
+
+        let mut serialized_claim_to_sign: Array<felt252> = array![];
+        identity.contract_address.serialize(ref serialized_claim_to_sign);
+        claim_topic.serialize(ref serialized_claim_to_sign);
+        claim_data.serialize(ref serialized_claim_to_sign);
+
+        let hashed_claim = poseidon_hash_span(
+            array!['Starknet Message', poseidon_hash_span(serialized_claim_to_sign.span())].span()
+        );
+
+        let (r, s) = factory_setup.accounts.claim_issuer_key.sign(hashed_claim).unwrap();
+
+        let claim_666_issuer = TestClaim {
+            claim_id,
+            identity: identity.contract_address,
+            issuer: claim_issuer_issuer,
+            topic: claim_topic,
+            scheme: 1,
+            data: claim_data,
+            signature: Signature::StarkSignature(
+                StarkSignature {
+                    r, s, public_key: factory_setup.accounts.claim_issuer_key.public_key
+                }
+            ),
+            uri: "https://example.com"
+        };
+        let claim_topic = 666_felt252;
+        let issuer_alice = claim_issuer_alice;
+        let claim_data_alice = "0x00666";
+        let claim_id_alice = poseidon_hash_span(array![issuer_alice.into(), claim_topic].span());
+
+        let mut serialized_claim_to_sign_alice: Array<felt252> = array![];
+        identity.contract_address.serialize(ref serialized_claim_to_sign_alice);
+        claim_topic.serialize(ref serialized_claim_to_sign_alice);
+        claim_data_alice.serialize(ref serialized_claim_to_sign_alice);
+
+        let hashed_claim_alice = poseidon_hash_span(
+            array!['Starknet Message', poseidon_hash_span(serialized_claim_to_sign.span())].span()
+        );
+
+        let (r_alice, s_alice) = factory_setup.accounts.alice_key.sign(hashed_claim_alice).unwrap();
+
+        let claim_666_alice = TestClaim {
+            claim_id: claim_id_alice,
+            identity: identity.contract_address,
+            issuer: claim_issuer_alice,
+            topic: claim_topic,
+            scheme: 1,
+            data: claim_data_alice,
+            signature: Signature::StarkSignature(
+                StarkSignature {
+                    r: r_alice, s: s_alice, public_key: factory_setup.accounts.alice_key.public_key
+                }
+            ),
+            uri: "https://example.com"
+        };
+
+        let claim_topic_david = 888_felt252;
+        let issuer_david = claim_issuer_david;
+        let claim_data_david = "0x00888";
+        let claim_id_david = poseidon_hash_span(array![issuer_david.into(), claim_topic].span());
+
+        let mut serialized_claim_to_sign_david: Array<felt252> = array![];
+        identity.contract_address.serialize(ref serialized_claim_to_sign_david);
+        claim_topic_david.serialize(ref serialized_claim_to_sign_david);
+        claim_data_david.serialize(ref serialized_claim_to_sign_david);
+
+        let hashed_claim_david = poseidon_hash_span(
+            array!['Starknet Message', poseidon_hash_span(serialized_claim_to_sign_david.span())]
+                .span()
+        );
+
+        let (r_david, s_david) = factory_setup.accounts.david_key.sign(hashed_claim_david).unwrap();
+
+        let claim_888_david = TestClaim {
+            claim_id: claim_id_david,
+            identity: identity.contract_address,
+            issuer: claim_issuer_david,
+            topic: claim_topic_david,
+            scheme: 1,
+            data: claim_data_david,
+            signature: Signature::StarkSignature(
+                StarkSignature {
+                    r: r_david, s: s_david, public_key: factory_setup.accounts.david_key.public_key
+                }
+            ),
+            uri: "https://example.com"
+        };
+
+        identity
             .add_claim(
-                test_claim.topic,
-                test_claim.scheme,
-                test_claim.issuer,
-                test_claim.signature,
-                test_claim.data.clone(),
-                test_claim.uri.clone()
+                claim_666_alice.topic,
+                claim_666_alice.scheme,
+                claim_666_alice.issuer,
+                claim_666_alice.signature,
+                claim_666_alice.data.clone(),
+                claim_666_alice.uri.clone()
             );
-        stop_cheat_caller_address(setup.alice_identity.contract_address);
 
-        let setup_verifier = setup_verifier();
+        identity
+            .add_claim(
+                claim_666_issuer.topic,
+                claim_666_issuer.scheme,
+                claim_666_issuer.issuer,
+                claim_666_issuer.signature,
+                claim_666_issuer.data.clone(),
+                claim_666_issuer.uri.clone()
+            );
 
-        //add the issuer as trusted and
+        identity
+            .add_claim(
+                claim_888_david.topic,
+                claim_888_david.scheme,
+                claim_888_david.issuer,
+                claim_888_david.signature,
+                claim_888_david.data.clone(),
+                claim_888_david.uri.clone()
+            );
+
+        stop_cheat_caller_address(identity.contract_address);
+
         start_cheat_caller_address(
             setup_verifier.mock_verifier.contract_address,
             setup_verifier.accounts.owner_account.contract_address
         );
-        setup_verifier.mock_verifier.add_claim_topic(test_claim.topic);
-        setup_verifier
-            .mock_verifier
-            .add_trusted_issuer(
-                setup.claim_issuer.contract_address.into(),
-                array![test_b_claim.topic, test_claim.topic, setup.alice_claim_666.topic]
-            );
+        setup_verifier.mock_verifier.add_claim_topic(888_felt252);
+        setup_verifier.mock_verifier.add_trusted_issuer(claim_issuer_issuer, array![666_felt252]);
+
+        setup_verifier.mock_verifier.add_trusted_issuer(claim_issuer_alice, array![666_felt252]);
+        setup_verifier.mock_verifier.add_trusted_issuer(claim_issuer_david, array![888_felt252]);
+
         stop_cheat_caller_address(setup_verifier.mock_verifier.contract_address);
-        //revoke the test_claim that is issued by the claim_issuer but it should not be verified as
-        //the topic has revoked by the only issuer
-        start_cheat_caller_address(
-            setup.claim_issuer.contract_address,
-            setup.accounts.claim_issuer_account.contract_address
-        );
-        setup.claim_issuer.revoke_claim_by_signature(test_claim.signature);
-        stop_cheat_caller_address(setup.claim_issuer.contract_address);
 
-        start_cheat_caller_address(
-            setup.accounts.alice_account.contract_address,
-            setup_verifier.accounts.owner_account.contract_address
-        );
-
-        let verified = setup_verifier.mock_verifier.verify(setup.alice_identity.contract_address);
-        stop_cheat_caller_address(setup.accounts.alice_account.contract_address);
-        assert(!verified, 'true but it should be false');
+        let claim_issuer_dispatcher = ClaimIssuerABIDispatcher {
+            contract_address: claim_issuer_david
+        };
+        //lets david revoke, this should not be valid as david is the only issuer of claim_888
+        start_cheat_caller_address(claim_issuer_dispatcher.contract_address, claim_issuer_david);
+        claim_issuer_dispatcher.revoke_claim_by_signature(claim_888_david.signature);
+        stop_cheat_caller_address(claim_issuer_dispatcher.contract_address);
+        let verified = setup_verifier.mock_verifier.verify(identity.contract_address);
+        assert(!verified, 'false but it should be true');
     }
 }
 
