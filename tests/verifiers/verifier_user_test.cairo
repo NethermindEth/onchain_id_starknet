@@ -15,7 +15,7 @@ use onchain_id_starknet::mocks::mock_verifier::IMockVerifierDispatcherTrait;
 use onchain_id_starknet::storage::structs::{Signature, StarkSignature};
 use onchain_id_starknet_tests::common::{
     setup_verifier, setup_identity, setup_factory, setup_accounts, FactorySetup, TestClaim,
-    get_test_claim, get_claim_issuer, get_identity
+ get_claim_issuer, get_identity
 };
 use snforge_std::{
     declare, DeclareResultTrait, ContractClassTrait, start_cheat_caller_address, spy_events,
@@ -29,7 +29,6 @@ use snforge_std::{
 use starknet::ContractAddress;
 use starknet::account::AccountContractDispatcher;
 
-use starknet::get_caller_address;
 
 fn deploy_verifier(
     contract_address: ContractAddress, user: ContractAddress
