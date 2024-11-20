@@ -1,33 +1,27 @@
-use core::num::traits::Zero;
 use core::poseidon::poseidon_hash_span;
 use onchain_id_starknet::interface::iverifier::{VerifierABIDispatcher, VerifierABIDispatcherTrait};
 
 use onchain_id_starknet::interface::{
-    iidentity::{IdentityABIDispatcher, IdentityABIDispatcherTrait},
-    iimplementation_authority::IImplementationAuthorityDispatcher,
+    iidentity::{IdentityABIDispatcherTrait},
     iclaim_issuer::{ClaimIssuerABIDispatcher, ClaimIssuerABIDispatcherTrait},
 };
 
-use onchain_id_starknet::interface::{ierc734};
-use onchain_id_starknet::mocks::mock_simple_storage::ISimpleStorageDispatcher;
 use onchain_id_starknet::mocks::mock_verifier::IMockVerifierDispatcher;
 use onchain_id_starknet::mocks::mock_verifier::IMockVerifierDispatcherTrait;
 use onchain_id_starknet::storage::structs::{Signature, StarkSignature};
 use onchain_id_starknet_tests::common::{
-    setup_verifier, setup_identity, setup_factory, setup_accounts, FactorySetup, TestClaim,
- get_claim_issuer, get_identity
+    setup_identity, setup_accounts, TestClaim, get_claim_issuer, get_identity
 };
 use snforge_std::{
-    declare, DeclareResultTrait, ContractClassTrait, start_cheat_caller_address, spy_events,
-    EventSpyAssertionsTrait, stop_cheat_caller_address,
+    declare, DeclareResultTrait, ContractClassTrait, start_cheat_caller_address,
+    stop_cheat_caller_address,
     signature::{
-        KeyPairTrait, SignerTrait, KeyPair,
+        SignerTrait,
         stark_curve::{StarkCurveKeyPairImpl, StarkCurveSignerImpl, StarkCurveVerifierImpl},
     },
 };
 
 use starknet::ContractAddress;
-use starknet::account::AccountContractDispatcher;
 
 
 fn deploy_verifier(

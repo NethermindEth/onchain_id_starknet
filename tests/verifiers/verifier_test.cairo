@@ -1,34 +1,27 @@
 pub mod verify {
-    use core::num::traits::Zero;
     use core::poseidon::poseidon_hash_span;
-    use onchain_id_starknet::factory::iid_factory::{
-        IIdFactoryDispatcher, IIdFactoryDispatcherTrait
-    };
+
     use onchain_id_starknet::interface::iverifier::VerifierABIDispatcherTrait;
 
     use onchain_id_starknet::interface::{
-        iidentity::{IdentityABIDispatcher, IdentityABIDispatcherTrait},
-        iimplementation_authority::IImplementationAuthorityDispatcher,
+        iidentity::{IdentityABIDispatcherTrait},
         iclaim_issuer::{ClaimIssuerABIDispatcher, ClaimIssuerABIDispatcherTrait},
         iverifier::{VerifierABIDispatcher},
     };
     use onchain_id_starknet::storage::structs::{Signature, StarkSignature};
     use onchain_id_starknet_tests::common::{
-        setup_verifier, setup_identity, setup_factory, TestClaim, IdentitySetup, FactorySetup,
-        setup_accounts, get_test_claim, get_claim_issuer, get_identity, get_claim_issuer_david,
-        get_claim_issuer_alice
+        setup_verifier, TestClaim, setup_accounts, get_claim_issuer, get_identity,
+        get_claim_issuer_david, get_claim_issuer_alice
     };
 
     use snforge_std::{
         declare, DeclareResultTrait, ContractClassTrait, start_cheat_caller_address,
         stop_cheat_caller_address,
         signature::{
-            KeyPairTrait, SignerTrait, KeyPair,
+            SignerTrait,
             stark_curve::{StarkCurveKeyPairImpl, StarkCurveSignerImpl, StarkCurveVerifierImpl},
         },
     };
-    use starknet::ContractAddress;
-    use starknet::account::AccountContractDispatcher;
 
     #[test]
     fn test_should_return_true_when_verifier_does_not_expect_claim_topics() {
@@ -568,20 +561,15 @@ pub mod verify {
 
 
 pub mod remove_claim_topic {
-    use core::num::traits::Zero;
     use onchain_id_starknet::interface::iverifier::VerifierABIDispatcherTrait;
-    use onchain_id_starknet::storage::structs::{Signature, StarkSignature};
     use onchain_id_starknet_tests::common::setup_verifier;
 
     use snforge_std::{
-        declare, DeclareResultTrait, ContractClassTrait, start_cheat_caller_address,
-        stop_cheat_caller_address,
+        start_cheat_caller_address, stop_cheat_caller_address,
         signature::{
-            KeyPairTrait, SignerTrait, KeyPair,
             stark_curve::{StarkCurveKeyPairImpl, StarkCurveSignerImpl, StarkCurveVerifierImpl},
         },
     };
-    use starknet::account::AccountContractDispatcher;
     #[test]
     #[should_panic(expected: 'Caller is not the owner')]
     fn test_should_panic_when_caller_not_owner() {
@@ -615,14 +603,11 @@ pub mod remove_trusted_issuer {
     use onchain_id_starknet_tests::common::setup_verifier;
 
     use snforge_std::{
-        declare, DeclareResultTrait, ContractClassTrait, start_cheat_caller_address,
-        stop_cheat_caller_address,
+        start_cheat_caller_address, stop_cheat_caller_address,
         signature::{
-            KeyPairTrait, SignerTrait, KeyPair,
             stark_curve::{StarkCurveKeyPairImpl, StarkCurveSignerImpl, StarkCurveVerifierImpl},
         },
     };
-    use starknet::account::AccountContractDispatcher;
     #[test]
     #[should_panic(expected: 'Caller is not the owner')]
     fn test_should_panic_when_caller_not_owner() {
@@ -688,7 +673,7 @@ pub mod add_trusted_issuer {
         declare, DeclareResultTrait, ContractClassTrait, start_cheat_caller_address,
         stop_cheat_caller_address,
         signature::{
-            KeyPairTrait, SignerTrait, KeyPair,
+            KeyPairTrait,
             stark_curve::{StarkCurveKeyPairImpl, StarkCurveSignerImpl, StarkCurveVerifierImpl},
         },
     };
@@ -817,7 +802,7 @@ pub mod update_issuer_claim_topics {
         declare, DeclareResultTrait, ContractClassTrait, start_cheat_caller_address,
         stop_cheat_caller_address,
         signature::{
-            KeyPairTrait, SignerTrait, KeyPair,
+            KeyPairTrait,
             stark_curve::{StarkCurveKeyPairImpl, StarkCurveSignerImpl, StarkCurveVerifierImpl},
         },
     };
@@ -945,7 +930,6 @@ pub mod update_issuer_claim_topics {
 }
 
 pub mod get_trusted_issuer_claim_topic {
-    use core::num::traits::Zero;
     use onchain_id_starknet::interface::iverifier::VerifierABIDispatcherTrait;
     use onchain_id_starknet_tests::common::setup_verifier;
 
@@ -953,7 +937,7 @@ pub mod get_trusted_issuer_claim_topic {
         declare, DeclareResultTrait, ContractClassTrait, start_cheat_caller_address,
         stop_cheat_caller_address,
         signature::{
-            KeyPairTrait, SignerTrait, KeyPair,
+            KeyPairTrait,
             stark_curve::{StarkCurveKeyPairImpl, StarkCurveSignerImpl, StarkCurveVerifierImpl},
         },
     };
