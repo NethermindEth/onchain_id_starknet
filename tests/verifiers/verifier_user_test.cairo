@@ -10,7 +10,7 @@ use onchain_id_starknet::mocks::mock_verifier::IMockVerifierDispatcher;
 use onchain_id_starknet::mocks::mock_verifier::IMockVerifierDispatcherTrait;
 use onchain_id_starknet::storage::structs::{Signature, StarkSignature};
 use onchain_id_starknet_tests::common::{
-    setup_identity, setup_accounts, TestClaim, get_claim_issuer, get_identity
+    setup_identity, setup_accounts, TestClaim, get_claim_issuer, get_identity, setup_factory
 };
 use snforge_std::{
     declare, DeclareResultTrait, ContractClassTrait, start_cheat_caller_address,
@@ -47,9 +47,13 @@ fn test_should_panic_when_calling_a_verified_function_not_as_an_identity() {
 #[test]
 fn test_should_return_when_identity_verified() {
     let setup_accounts = setup_accounts();
-    let (identity, factory_setup) = get_identity(setup_accounts.carol_account, 'carol');
+    let factory_setup = setup_factory();
+    let identity = get_identity(setup_accounts.carol_account, 'carol');
 
-    let claim_issuer = get_claim_issuer(@factory_setup);
+    let claim_issuer = get_claim_issuer(
+        factory_setup.accounts.claim_issuer_account, factory_setup.accounts.claim_issuer_key
+    );
+
     start_cheat_caller_address(
         identity.contract_address, setup_accounts.carol_account.contract_address
     );
@@ -109,8 +113,6 @@ fn test_should_return_when_identity_verified() {
     verifier_dispatcher.add_trusted_issuer(claim_issuer.into(), array![claim_666.topic]);
     stop_cheat_caller_address(mock_verifier_address);
 
-    let claim_issuer_dispatcher = ClaimIssuerABIDispatcher { contract_address: claim_issuer };
-
     start_cheat_caller_address(
         identity.contract_address, setup_accounts.carol_account.contract_address
     );
@@ -124,9 +126,13 @@ fn test_should_return_when_identity_verified() {
 #[should_panic(expected: 'sender is not verified')]
 fn test_should_return_when_identity_is_not_verified() {
     let setup_accounts = setup_accounts();
-    let (identity, factory_setup) = get_identity(setup_accounts.carol_account, 'carol');
+    let factory_setup = setup_factory();
+    let identity = get_identity(setup_accounts.carol_account, 'carol');
 
-    let claim_issuer = get_claim_issuer(@factory_setup);
+    let claim_issuer = get_claim_issuer(
+        factory_setup.accounts.claim_issuer_account, factory_setup.accounts.claim_issuer_key
+    );
+
     start_cheat_caller_address(
         identity.contract_address, setup_accounts.carol_account.contract_address
     );

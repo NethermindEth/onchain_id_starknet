@@ -10,8 +10,7 @@ pub mod verify {
     };
     use onchain_id_starknet::storage::structs::{Signature, StarkSignature};
     use onchain_id_starknet_tests::common::{
-        setup_verifier, TestClaim, setup_accounts, get_claim_issuer, get_identity,
-        get_claim_issuer_david, get_claim_issuer_alice
+        setup_verifier, TestClaim, setup_accounts, get_claim_issuer, get_identity, setup_factory
     };
 
     use snforge_std::{
@@ -53,7 +52,7 @@ pub mod verify {
         verifier_dispatcher.add_claim_topic(666_felt252);
         stop_cheat_caller_address(verifier_dispatcher.contract_address);
 
-        let (identity, _) = get_identity(setup_account.carol_account, 'carol');
+        let identity = get_identity(setup_account.carol_account, 'carol');
         let verified = verifier_dispatcher.verify(identity.contract_address);
         assert(!verified, 'should not be verified');
     }
@@ -62,15 +61,17 @@ pub mod verify {
     fn test_should_return_false_when_verifier_expect_one_claim_topic_but_has_trusted_issuer_for_another_topic() {
         //The verifier in setup_verififer has claim_666 and a trusted issuer
         let setup_verifier = setup_verifier();
-        let (identity, factory_setup) = get_identity(
-            setup_verifier.accounts.carol_account, 'carol'
-        );
+        let factory_setup = setup_factory();
+        let identity = get_identity(setup_verifier.accounts.carol_account, 'carol');
 
-        let claim_issuer = get_claim_issuer(@factory_setup);
+        let claim_issuer = get_claim_issuer(
+            factory_setup.accounts.claim_issuer_account, factory_setup.accounts.claim_issuer_key
+        );
         start_cheat_caller_address(
             setup_verifier.mock_verifier.contract_address,
             setup_verifier.accounts.owner_account.contract_address
         );
+        setup_verifier.mock_verifier.add_claim_topic(666_felt252);
         setup_verifier.mock_verifier.add_trusted_issuer(claim_issuer, array![888_felt252]);
         stop_cheat_caller_address(setup_verifier.mock_verifier.contract_address);
 
@@ -82,16 +83,19 @@ pub mod verify {
     #[test]
     fn test_should_return_false_when_verifier_expect_one_claim_topic_and_has_trusted_issuer_for_topic_when_identity_does_not_have_the_claim() {
         let setup_verifier = setup_verifier();
-        let (identity, factory_setup) = get_identity(
-            setup_verifier.accounts.carol_account, 'carol'
-        );
+        let factory_setup = setup_factory();
+        let identity = get_identity(setup_verifier.accounts.carol_account, 'carol');
 
-        let claim_issuer = get_claim_issuer(@factory_setup);
+        let claim_issuer = get_claim_issuer(
+            factory_setup.accounts.claim_issuer_account, factory_setup.accounts.claim_issuer_key
+        );
 
         start_cheat_caller_address(
             setup_verifier.mock_verifier.contract_address,
             setup_verifier.accounts.owner_account.contract_address
         );
+        setup_verifier.mock_verifier.add_claim_topic(666_felt252);
+
         setup_verifier.mock_verifier.add_trusted_issuer(claim_issuer, array![666_felt252]);
         stop_cheat_caller_address(setup_verifier.mock_verifier.contract_address);
         let verified = setup_verifier.mock_verifier.verify(identity.contract_address);
@@ -101,11 +105,12 @@ pub mod verify {
     #[test]
     fn test_should_return_false_when_identity_does_not_have_valid_expected_claim() {
         let setup_verifier = setup_verifier();
-        let (identity, factory_setup) = get_identity(
-            setup_verifier.accounts.carol_account, 'carol'
+        let factory_setup = setup_factory();
+        let identity = get_identity(setup_verifier.accounts.carol_account, 'carol');
+        let claim_issuer = get_claim_issuer(
+            factory_setup.accounts.claim_issuer_account, factory_setup.accounts.claim_issuer_key
         );
 
-        let claim_issuer = get_claim_issuer(@factory_setup);
         start_cheat_caller_address(
             identity.contract_address, setup_verifier.accounts.carol_account.contract_address
         );
@@ -155,6 +160,7 @@ pub mod verify {
             setup_verifier.mock_verifier.contract_address,
             setup_verifier.accounts.owner_account.contract_address
         );
+        setup_verifier.mock_verifier.add_claim_topic(666_felt252);
         setup_verifier.mock_verifier.add_trusted_issuer(claim_issuer, array![666_felt252]);
         stop_cheat_caller_address(setup_verifier.mock_verifier.contract_address);
 
@@ -169,11 +175,13 @@ pub mod verify {
     #[test]
     fn test_should_return_true_when_identity_has_valid_expected_claim() {
         let setup_verifier = setup_verifier();
-        let (identity, factory_setup) = get_identity(
-            setup_verifier.accounts.carol_account, 'carol'
+        let factory_setup = setup_factory();
+        let identity = get_identity(setup_verifier.accounts.carol_account, 'carol');
+
+        let claim_issuer = get_claim_issuer(
+            factory_setup.accounts.claim_issuer_account, factory_setup.accounts.claim_issuer_key
         );
 
-        let claim_issuer = get_claim_issuer(@factory_setup);
         start_cheat_caller_address(
             identity.contract_address, setup_verifier.accounts.carol_account.contract_address
         );
@@ -233,13 +241,18 @@ pub mod verify {
     #[test]
     fn test_should_return_true_when_verifier_expect_multiple_claim_topic_and_allow_multiple_trusted_issuers_when_identity_is_compliant() {
         let setup_verifier = setup_verifier();
-        let (identity, factory_setup) = get_identity(
-            setup_verifier.accounts.carol_account, 'carol'
-        );
+        let factory_setup = setup_factory();
+        let identity = get_identity(setup_verifier.accounts.carol_account, 'carol');
 
-        let claim_issuer_issuer = get_claim_issuer(@factory_setup);
-        let claim_issuer_david = get_claim_issuer_david(@factory_setup);
-        let claim_issuer_alice = get_claim_issuer_alice(@factory_setup);
+        let claim_issuer_issuer = get_claim_issuer(
+            factory_setup.accounts.claim_issuer_account, factory_setup.accounts.claim_issuer_key
+        );
+        let claim_issuer_david = get_claim_issuer(
+            factory_setup.accounts.david_account, factory_setup.accounts.david_key
+        );
+        let claim_issuer_alice = get_claim_issuer(
+            factory_setup.accounts.alice_account, factory_setup.accounts.alice_key
+        );
 
         start_cheat_caller_address(
             identity.contract_address, setup_verifier.accounts.carol_account.contract_address
@@ -397,13 +410,18 @@ pub mod verify {
     #[test]
     fn test_should_return_flase_when_verifier_expect_multiple_claim_topic_and_allow_multiple_trusted_issuers_when_identity_is_not_compliant() {
         let setup_verifier = setup_verifier();
-        let (identity, factory_setup) = get_identity(
-            setup_verifier.accounts.carol_account, 'carol'
-        );
+        let factory_setup = setup_factory();
+        let identity = get_identity(setup_verifier.accounts.carol_account, 'carol');
 
-        let claim_issuer_issuer = get_claim_issuer(@factory_setup);
-        let claim_issuer_david = get_claim_issuer_david(@factory_setup);
-        let claim_issuer_alice = get_claim_issuer_alice(@factory_setup);
+        let claim_issuer_issuer = get_claim_issuer(
+            factory_setup.accounts.claim_issuer_account, factory_setup.accounts.claim_issuer_key
+        );
+        let claim_issuer_david = get_claim_issuer(
+            factory_setup.accounts.david_account, factory_setup.accounts.david_key
+        );
+        let claim_issuer_alice = get_claim_issuer(
+            factory_setup.accounts.alice_account, factory_setup.accounts.alice_key
+        );
 
         start_cheat_caller_address(
             identity.contract_address, setup_verifier.accounts.carol_account.contract_address

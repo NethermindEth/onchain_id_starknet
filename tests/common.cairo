@@ -4,7 +4,7 @@ use onchain_id_starknet::interface::{
     iidentity::{IdentityABIDispatcher, IdentityABIDispatcherTrait},
     iimplementation_authority::IImplementationAuthorityDispatcher,
     iclaim_issuer::{ClaimIssuerABIDispatcher, ClaimIssuerABIDispatcherTrait},
-    iverifier::{VerifierABIDispatcher, VerifierABIDispatcherTrait},
+    iverifier::VerifierABIDispatcher,
 };
 use onchain_id_starknet::storage::structs::{Signature, StarkSignature};
 use snforge_std::{
@@ -359,15 +359,6 @@ pub fn setup_verifier() -> VerifierSetup {
         .unwrap();
     let mut verifier_dispatcher = VerifierABIDispatcher { contract_address: mock_verifier_address };
     let alice_claim_666 = setup.alice_claim_666;
-    start_cheat_caller_address(
-        mock_verifier_address, setup.accounts.owner_account.contract_address
-    );
-    verifier_dispatcher.add_claim_topic(alice_claim_666.topic);
-    verifier_dispatcher
-        .add_trusted_issuer(
-            setup.accounts.claim_issuer_account.contract_address, array![alice_claim_666.topic]
-        );
-    stop_cheat_caller_address(mock_verifier_address);
 
     VerifierSetup {
         identity: IdentityABIDispatcher { contract_address: identity_address },
@@ -409,10 +400,12 @@ pub fn get_test_claim(setup: @IdentitySetup) -> TestClaim {
     }
 }
 
-pub fn get_claim_issuer(factory_setup: @FactorySetup) -> ContractAddress {
+pub fn get_claim_issuer(
+    issuer_account: AccountContractDispatcher, issuer_key: KeyPair<felt252, felt252>
+) -> ContractAddress {
     let claim_issuer_contract = declare("ClaimIssuer").unwrap().contract_class();
-    let factory_accounts_issuer = *factory_setup.accounts.claim_issuer_account.contract_address;
-    let actory_accounts_issuer_public = *factory_setup.accounts.claim_issuer_key.public_key;
+    let factory_accounts_issuer = issuer_account.contract_address;
+    let actory_accounts_issuer_public = issuer_key.public_key;
     let (claim_issuer_address, _) = claim_issuer_contract
         .deploy(@array![factory_accounts_issuer.into()])
         .unwrap();
@@ -436,63 +429,8 @@ pub fn get_claim_issuer(factory_setup: @FactorySetup) -> ContractAddress {
     claim_issuer_address
 }
 
-pub fn get_claim_issuer_david(factory_setup: @FactorySetup) -> ContractAddress {
-    let claim_issuer_contract = declare("ClaimIssuer").unwrap().contract_class();
-    let factory_accounts_issuer = *factory_setup.accounts.david_account.contract_address;
-    let actory_accounts_issuer_public = *factory_setup.accounts.david_key.public_key;
-    let (claim_issuer_address, _) = claim_issuer_contract
-        .deploy(@array![factory_accounts_issuer.into()])
-        .unwrap();
-    let claim_issuer_dispatcher = ClaimIssuerABIDispatcher {
-        contract_address: claim_issuer_address
-    };
-    start_cheat_caller_address(claim_issuer_address, factory_accounts_issuer.into());
-    // register claim issuer account as claim key
-    let claim_issuer_account_address_hash = poseidon_hash_span(
-        array![factory_accounts_issuer.into()].span()
-    );
-    claim_issuer_dispatcher.add_key(claim_issuer_account_address_hash, 3, 1);
-    // register claim issuer public key as management + claim_key
-    let claim_issuer_pub_key_hash = poseidon_hash_span(
-        array![actory_accounts_issuer_public].span()
-    );
-    claim_issuer_dispatcher.add_key(claim_issuer_pub_key_hash, 1, 1);
-    claim_issuer_dispatcher.add_key(claim_issuer_pub_key_hash, 3, 1);
-    stop_cheat_caller_address(claim_issuer_address);
-
-    claim_issuer_address
-}
-pub fn get_claim_issuer_alice(factory_setup: @FactorySetup) -> ContractAddress {
-    let claim_issuer_contract = declare("ClaimIssuer").unwrap().contract_class();
-    let factory_accounts_issuer = *factory_setup.accounts.alice_account.contract_address;
-    let actory_accounts_issuer_public = *factory_setup.accounts.alice_key.public_key;
-    let (claim_issuer_address, _) = claim_issuer_contract
-        .deploy(@array![factory_accounts_issuer.into()])
-        .unwrap();
-    let claim_issuer_dispatcher = ClaimIssuerABIDispatcher {
-        contract_address: claim_issuer_address
-    };
-    start_cheat_caller_address(claim_issuer_address, factory_accounts_issuer.into());
-    // register claim issuer account as claim key
-    let claim_issuer_account_address_hash = poseidon_hash_span(
-        array![factory_accounts_issuer.into()].span()
-    );
-    claim_issuer_dispatcher.add_key(claim_issuer_account_address_hash, 3, 1);
-    // register claim issuer public key as management + claim_key
-    let claim_issuer_pub_key_hash = poseidon_hash_span(
-        array![actory_accounts_issuer_public].span()
-    );
-    claim_issuer_dispatcher.add_key(claim_issuer_pub_key_hash, 1, 1);
-    claim_issuer_dispatcher.add_key(claim_issuer_pub_key_hash, 3, 1);
-    stop_cheat_caller_address(claim_issuer_address);
-
-    claim_issuer_address
-}
-pub fn get_identity(
-    account: AccountContractDispatcher, name: felt252
-) -> (IdentityABIDispatcher, FactorySetup) {
-    let mut factory_setup = setup_factory();
-
+pub fn get_identity(account: AccountContractDispatcher, name: felt252) -> IdentityABIDispatcher {
+    let factory_setup = setup_factory();
     start_cheat_caller_address(
         factory_setup.identity_factory.contract_address,
         factory_setup.accounts.owner_account.contract_address
@@ -546,5 +484,5 @@ pub fn get_identity(
         );
     stop_cheat_caller_address(identity.contract_address);
 
-    (IdentityABIDispatcher { contract_address: identity.contract_address }, factory_setup)
+    IdentityABIDispatcher { contract_address: identity.contract_address }
 }
