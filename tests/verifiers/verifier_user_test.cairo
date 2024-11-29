@@ -10,7 +10,7 @@ use onchain_id_starknet::mocks::mock_verifier::IMockVerifierDispatcher;
 use onchain_id_starknet::mocks::mock_verifier::IMockVerifierDispatcherTrait;
 use onchain_id_starknet::storage::structs::{Signature, StarkSignature};
 use onchain_id_starknet_tests::common::{
-    setup_identity, setup_accounts, TestClaim, get_claim_issuer, get_identity, setup_factory
+    setup_identity, setup_accounts, TestClaim, get_claim_issuer, get_identity, setup_factory, setup_verifier
 };
 use snforge_std::{
     declare, DeclareResultTrait, ContractClassTrait, start_cheat_caller_address,
@@ -24,22 +24,12 @@ use snforge_std::{
 use starknet::ContractAddress;
 
 
-fn deploy_verifier(
-    contract_address: ContractAddress, user: ContractAddress
-) -> (IMockVerifierDispatcher, ContractAddress) {
-    let mock_verifier_contract = declare("MockVerifier").unwrap().contract_class();
-    let (mock_verifier_address, _) = mock_verifier_contract.deploy(@array![user.into()]).unwrap();
-    (IMockVerifierDispatcher { contract_address: mock_verifier_address }, mock_verifier_address)
-}
-
 #[test]
 #[ignore]
 #[should_panic]
 fn test_should_panic_when_calling_a_verified_function_not_as_an_identity() {
-    let setup = setup_identity();
-    let (verifier_user, _) = deploy_verifier(
-        setup.alice_identity.contract_address, setup.accounts.alice_account.contract_address
-    );
+    let verifier_setup = setup_verifier();
+    let verifier_user = IMockVerifierDispatcher { contract_address: verifier_setup.mock_verifier.contract_address };
     //verifier_user.add_claim_topic(666_felt252);
     verifier_user.do_something();
 }
@@ -48,6 +38,8 @@ fn test_should_panic_when_calling_a_verified_function_not_as_an_identity() {
 fn test_should_return_when_identity_verified() {
     let setup_accounts = setup_accounts();
     let factory_setup = setup_factory();
+    let verifier_setup = setup_verifier();
+
     let identity = get_identity(setup_accounts.carol_account, 'carol');
 
     let claim_issuer = get_claim_issuer(
@@ -97,22 +89,21 @@ fn test_should_return_when_identity_verified() {
         );
     stop_cheat_caller_address(identity.contract_address);
 
-    let (verifier_user, mock_verifier_address) = deploy_verifier(
-        identity.contract_address, setup_accounts.carol_account.contract_address
-    );
-
+    let verifier_user = IMockVerifierDispatcher { contract_address: verifier_setup.mock_verifier.contract_address };
+    let mock_verifier_address = verifier_setup.mock_verifier.contract_address;
     let to = verifier_user.contract_address;
     let selector = selector!("do_something");
     let calldata = array![];
 
     let mut verifier_dispatcher = VerifierABIDispatcher { contract_address: mock_verifier_address };
-    start_cheat_caller_address(
-        mock_verifier_address, setup_accounts.carol_account.contract_address
-    );
-    verifier_dispatcher.add_claim_topic(claim_666.topic);
-    verifier_dispatcher.add_trusted_issuer(claim_issuer.into(), array![claim_666.topic]);
-    stop_cheat_caller_address(mock_verifier_address);
 
+    start_cheat_caller_address(
+        verifier_setup.mock_verifier.contract_address,
+        verifier_setup.accounts.owner_account.contract_address
+    );
+    verifier_setup.mock_verifier.add_claim_topic(claim_666.topic);
+    verifier_setup.mock_verifier.add_trusted_issuer(claim_issuer.into(), array![claim_666.topic]);
+    stop_cheat_caller_address(verifier_setup.mock_verifier.contract_address);
     start_cheat_caller_address(
         identity.contract_address, setup_accounts.carol_account.contract_address
     );
@@ -128,6 +119,7 @@ fn test_should_return_when_identity_is_not_verified() {
     let setup_accounts = setup_accounts();
     let factory_setup = setup_factory();
     let identity = get_identity(setup_accounts.carol_account, 'carol');
+    let verifier_setup = setup_verifier();
 
     let claim_issuer = get_claim_issuer(
         factory_setup.accounts.claim_issuer_account, factory_setup.accounts.claim_issuer_key
@@ -176,9 +168,9 @@ fn test_should_return_when_identity_is_not_verified() {
         );
     stop_cheat_caller_address(identity.contract_address);
 
-    let (verifier_user, mock_verifier_address) = deploy_verifier(
-        identity.contract_address, setup_accounts.carol_account.contract_address
-    );
+
+    let verifier_user = IMockVerifierDispatcher { contract_address: verifier_setup.mock_verifier.contract_address };
+    let mock_verifier_address = verifier_setup.mock_verifier.contract_address;
 
     let to = verifier_user.contract_address;
     let selector = selector!("do_something");
@@ -186,11 +178,12 @@ fn test_should_return_when_identity_is_not_verified() {
 
     let mut verifier_dispatcher = VerifierABIDispatcher { contract_address: mock_verifier_address };
     start_cheat_caller_address(
-        mock_verifier_address, setup_accounts.carol_account.contract_address
+        verifier_setup.mock_verifier.contract_address,
+        verifier_setup.accounts.owner_account.contract_address
     );
     verifier_dispatcher.add_claim_topic(claim_666.topic);
     verifier_dispatcher.add_trusted_issuer(claim_issuer.into(), array![claim_666.topic]);
-    stop_cheat_caller_address(mock_verifier_address);
+    stop_cheat_caller_address(verifier_setup.mock_verifier.contract_address);
 
     let claim_issuer_dispatcher = ClaimIssuerABIDispatcher { contract_address: claim_issuer };
     //revoke claim to make not verified
