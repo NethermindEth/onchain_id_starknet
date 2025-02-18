@@ -2,19 +2,19 @@
 name = "onchain_id_starknet"
 version = "0.1.0"
 edition = "2024_07"
-cairo-version = "2.9.2"
+cairo-version = "2.10.0"
 
 # See more keys and their definitions at https://docs.swmansion.com/scarb/docs/reference/manifest.html
 
 [dependencies]
-starknet = "2.9.2"
+starknet = "2.10.0"
 openzeppelin_access = "0.20.0"
 openzeppelin_introspection = "0.20.0"
 openzeppelin_upgrades = "0.20.0"
 openzeppelin_account = "0.20.0"
 
 [dev-dependencies]
-snforge_std = "0.35.1"
+snforge_std = "0.37.0"
 
 [lib]
 sierra = true

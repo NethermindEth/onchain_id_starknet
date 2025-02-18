@@ -125,7 +125,7 @@ pub mod VerifierComponent {
                 };
 
                 let mut j = 0;
-                while j < claim_ids.len() {
+                while j != claim_ids.len() {
                     let dispatcher = IERC735Dispatcher { contract_address: identity };
                     let (found_claim_topic, _, issuer, sig, data, _) = dispatcher
                         .get_claim(*claim_ids.at(j));
@@ -142,12 +142,10 @@ pub mod VerifierComponent {
                             verified = false;
                             break;
                         }
-                    } else {
-                        if j == claim_ids.len() - 1 {
-                            verified = false;
-                            break;
-                        }
-                    };
+                    } else if j == claim_ids.len() - 1 {
+                        verified = false;
+                        break;
+                    }
                     j += 1;
                 };
                 if !verified {

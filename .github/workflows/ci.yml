@@ -1,0 +1,19 @@
+name: Build and Test
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: foundry-rs/setup-snfoundry@v4
+      - uses: software-mansion/setup-scarb@v1.5.0
+      - name: Install universal-sierra-compiler
+        run: |
+          curl -L https://raw.githubusercontent.com/software-mansion/universal-sierra-compiler/master/scripts/install.sh | sh -s -- v2.4.0-rc.0
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - run: scarb fmt --check
+      - run: snforge test
