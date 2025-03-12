@@ -8,15 +8,17 @@ pub mod IdentityComponent {
         IIdentity, IIdentityDispatcher, IIdentityDispatcherTrait,
     };
     use onchain_id_starknet::interface::{ierc734, ierc735};
+    use onchain_id_starknet::storage::signature::{get_public_key_hash, is_valid_signature};
     use onchain_id_starknet::storage::storage::{
         Felt252VecToFelt252Array, MutableFelt252VecToFelt252Array,
         MutableStorageArrayFelt252IndexView, MutableStorageArrayTrait, StorageArrayFelt252,
-        StorageArrayFelt252IndexView,
+        StorageArrayFelt252IndexView, StorageArrayTrait,
     };
     use onchain_id_starknet::storage::structs::{
-        Claim, Execution, ExecutionRequestStatus, KeyDetails, KeyDetailsTrait, Signature,
-        get_public_key_hash, is_valid_signature,
+        Claim, Execution, ExecutionRequestStatus, KeyDetails, KeyDetailsTrait,
     };
+    use onchain_id_starknet::version::version::VersionComponent;
+    use openzeppelin_upgrades::upgradeable::UpgradeableComponent;
     use starknet::ContractAddress;
     use starknet::storage::{
         Map, Mutable, StoragePath, StoragePathEntry, StoragePointerReadAccess,
@@ -78,6 +80,7 @@ pub mod IdentityComponent {
             if !self.key_has_purpose(pub_key_hash, Purpose::CLAIM) {
                 return false;
             }
+
             // NOTE: How about comply with SNIP12
             let mut serialized_claim: Array<felt252> = array![];
             identity.serialize(ref serialized_claim);

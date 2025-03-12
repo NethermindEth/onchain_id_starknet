@@ -143,7 +143,7 @@ pub mod revoke_claim {
 pub mod is_claim_valid {
     use core::poseidon::poseidon_hash_span;
     use onchain_id_starknet::interface::iclaim_issuer::ClaimIssuerABIDispatcherTrait;
-    use onchain_id_starknet::storage::structs::{Signature, StarkSignature};
+    use onchain_id_starknet::storage::signature::{Signature, StarkSignature};
     use snforge_std::signature::SignerTrait;
     use snforge_std::signature::stark_curve::{
         StarkCurveKeyPairImpl, StarkCurveSignerImpl, StarkCurveVerifierImpl,

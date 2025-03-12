@@ -3,7 +3,7 @@ pub mod add_claim {
         use core::poseidon::poseidon_hash_span;
         use onchain_id_starknet::interface::ierc735;
         use onchain_id_starknet::interface::iidentity::IdentityABIDispatcherTrait;
-        use onchain_id_starknet::storage::structs::{Signature, StarkSignature};
+        use onchain_id_starknet::storage::signature::{Signature, StarkSignature};
         use snforge_std::signature::SignerTrait;
         use snforge_std::signature::stark_curve::{
             StarkCurveKeyPairImpl, StarkCurveSignerImpl, StarkCurveVerifierImpl,
@@ -254,7 +254,7 @@ pub mod add_claim {
         use core::poseidon::poseidon_hash_span;
         use onchain_id_starknet::interface::ierc735;
         use onchain_id_starknet::interface::iidentity::IdentityABIDispatcherTrait;
-        use onchain_id_starknet::storage::structs::{Signature, StarkSignature};
+        use onchain_id_starknet::storage::signature::{Signature, StarkSignature};
         use snforge_std::signature::SignerTrait;
         use snforge_std::signature::stark_curve::{
             StarkCurveKeyPairImpl, StarkCurveSignerImpl, StarkCurveVerifierImpl,
@@ -464,7 +464,7 @@ pub mod update_claim {
     use core::poseidon::poseidon_hash_span;
     use onchain_id_starknet::interface::ierc735;
     use onchain_id_starknet::interface::iidentity::IdentityABIDispatcherTrait;
-    use onchain_id_starknet::storage::structs::{Signature, StarkSignature};
+    use onchain_id_starknet::storage::signature::{Signature, StarkSignature};
     use snforge_std::signature::SignerTrait;
     use snforge_std::signature::stark_curve::{
         StarkCurveKeyPairImpl, StarkCurveSignerImpl, StarkCurveVerifierImpl,
@@ -753,7 +753,7 @@ pub mod remove_claim {
 pub mod get_claim {
     use core::num::traits::Zero;
     use onchain_id_starknet::interface::iidentity::IdentityABIDispatcherTrait;
-    use onchain_id_starknet::storage::structs::Signature;
+    use onchain_id_starknet::storage::signature::Signature;
     use crate::common::setup_identity;
 
     #[test]

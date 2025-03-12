@@ -6,7 +6,7 @@ use onchain_id_starknet::interface::iclaim_issuer::{
 use onchain_id_starknet::interface::iidentity::{IdentityABIDispatcher, IdentityABIDispatcherTrait};
 use onchain_id_starknet::interface::iimplementation_authority::IImplementationAuthorityDispatcher;
 use onchain_id_starknet::interface::iverifier::{VerifierABIDispatcher, VerifierABIDispatcherTrait};
-use onchain_id_starknet::storage::structs::{Signature, StarkSignature};
+use onchain_id_starknet::storage::signature::{Signature, StarkSignature};
 use openzeppelin_account::interface::AccountABIDispatcher;
 use snforge_std::signature::stark_curve::{
     StarkCurveKeyPairImpl, StarkCurveSignerImpl, StarkCurveVerifierImpl,
