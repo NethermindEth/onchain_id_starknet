@@ -21,19 +21,19 @@ use starknet::ContractAddress;
 #[derive(Drop)]
 pub struct TestAccounts {
     pub owner_key: KeyPair<felt252, felt252>,
-    pub owner_account: AccountContractDispatcher,
+    pub owner_account: AccountABIDispatcher,
     pub alice_key: KeyPair<felt252, felt252>,
-    pub alice_account: AccountContractDispatcher,
+    pub alice_account: AccountABIDispatcher,
     pub bob_key: KeyPair<felt252, felt252>,
-    pub bob_account: AccountContractDispatcher,
+    pub bob_account: AccountABIDispatcher,
     pub carol_key: KeyPair<felt252, felt252>,
-    pub carol_account: AccountContractDispatcher,
+    pub carol_account: AccountABIDispatcher,
     pub david_key: KeyPair<felt252, felt252>,
-    pub david_account: AccountContractDispatcher,
+    pub david_account: AccountABIDispatcher,
     pub claim_issuer_key: KeyPair<felt252, felt252>,
-    pub claim_issuer_account: AccountContractDispatcher,
+    pub claim_issuer_account: AccountABIDispatcher,
     pub token_owner_key: KeyPair<felt252, felt252>,
-    pub token_owner_account: AccountContractDispatcher,
+    pub token_owner_account: AccountABIDispatcher,
 }
 
 #[derive(Drop)]
@@ -85,37 +85,37 @@ pub fn setup_accounts() -> TestAccounts {
     let (owner_account_address, _) = mock_account_contract
         .deploy(@array![owner_key.public_key])
         .unwrap();
-    let owner_account = AccountContractDispatcher { contract_address: owner_account_address };
+    let owner_account = AccountABIDispatcher { contract_address: owner_account_address };
     // set alice key and account
     let alice_key = KeyPairTrait::<felt252, felt252>::generate();
     let (alice_account_address, _) = mock_account_contract
         .deploy(@array![alice_key.public_key])
         .unwrap();
-    let alice_account = AccountContractDispatcher { contract_address: alice_account_address };
+    let alice_account = AccountABIDispatcher { contract_address: alice_account_address };
     // set bob key and account
     let bob_key = KeyPairTrait::<felt252, felt252>::generate();
     let (bob_account_address, _) = mock_account_contract
         .deploy(@array![bob_key.public_key])
         .unwrap();
-    let bob_account = AccountContractDispatcher { contract_address: bob_account_address };
+    let bob_account = AccountABIDispatcher { contract_address: bob_account_address };
     // set carol key and account
     let carol_key = KeyPairTrait::<felt252, felt252>::generate();
     let (carol_account_address, _) = mock_account_contract
         .deploy(@array![carol_key.public_key])
         .unwrap();
-    let carol_account = AccountContractDispatcher { contract_address: carol_account_address };
+    let carol_account = AccountABIDispatcher { contract_address: carol_account_address };
     // set david key and account
     let david_key = KeyPairTrait::<felt252, felt252>::generate();
     let (david_account_address, _) = mock_account_contract
         .deploy(@array![david_key.public_key])
         .unwrap();
-    let david_account = AccountContractDispatcher { contract_address: david_account_address };
+    let david_account = AccountABIDispatcher { contract_address: david_account_address };
     // set claim issuer key and account
     let claim_issuer_key = KeyPairTrait::<felt252, felt252>::generate();
     let (claim_issuer_account_address, _) = mock_account_contract
         .deploy(@array![claim_issuer_key.public_key])
         .unwrap();
-    let claim_issuer_account = AccountContractDispatcher {
+    let claim_issuer_account = AccountABIDispatcher {
         contract_address: claim_issuer_account_address,
     };
     // set token owner key and account
@@ -123,7 +123,7 @@ pub fn setup_accounts() -> TestAccounts {
     let (token_owner_account_address, _) = mock_account_contract
         .deploy(@array![token_owner_key.public_key])
         .unwrap();
-    let token_owner_account = AccountContractDispatcher {
+    let token_owner_account = AccountABIDispatcher {
         contract_address: token_owner_account_address,
     };
 
