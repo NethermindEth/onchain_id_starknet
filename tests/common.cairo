@@ -73,7 +73,7 @@ pub struct TestClaim {
     pub scheme: felt252,
     pub identity: ContractAddress,
     pub issuer: ContractAddress,
-    pub signature: Signature,
+    pub signature: Span<felt252>,
     pub data: ByteArray,
     pub uri: ByteArray,
 }
@@ -273,6 +273,11 @@ pub fn setup_identity() -> IdentitySetup {
 
     let (r, s) = factory_setup.accounts.claim_issuer_key.sign(hashed_claim).unwrap();
 
+    let alice_claim_666_signature = Signature::StarkSignature(
+        StarkSignature { r, s, public_key: factory_setup.accounts.claim_issuer_key.public_key },
+    );
+    let mut alice_claim_666_signature_serialized = Default::default();
+    alice_claim_666_signature.serialize(ref alice_claim_666_signature_serialized);
     let alice_claim_666 = TestClaim {
         claim_id,
         identity: alice_identity.contract_address,
@@ -280,9 +285,7 @@ pub fn setup_identity() -> IdentitySetup {
         topic: claim_topic,
         scheme: 1,
         data: claim_data,
-        signature: Signature::StarkSignature(
-            StarkSignature { r, s, public_key: factory_setup.accounts.claim_issuer_key.public_key },
-        ),
+        signature: alice_claim_666_signature_serialized.span(),
         uri: "https://example.com",
     };
 
@@ -395,6 +398,11 @@ pub fn get_test_claim(setup: @IdentitySetup) -> TestClaim {
     );
 
     let (r, s) = (*setup.accounts.claim_issuer_key).sign(hashed_claim).unwrap();
+    let signature = Signature::StarkSignature(
+        StarkSignature { r, s, public_key: *setup.accounts.claim_issuer_key.public_key },
+    );
+    let mut serialized_signature = Default::default();
+    signature.serialize(ref serialized_signature);
     TestClaim {
         claim_id,
         identity,
@@ -402,9 +410,7 @@ pub fn get_test_claim(setup: @IdentitySetup) -> TestClaim {
         topic: claim_topic,
         scheme: 1,
         data: claim_data,
-        signature: Signature::StarkSignature(
-            StarkSignature { r, s, public_key: *setup.accounts.claim_issuer_key.public_key },
-        ),
+        signature: serialized_signature.span(),
         uri: "https://example.com",
     }
 }

@@ -32,6 +32,12 @@ pub mod add_claim {
             );
 
             let (r, s) = (*setup.accounts.alice_key).sign(hashed_claim).unwrap();
+            let signature = Signature::StarkSignature(
+                StarkSignature { r, s, public_key: *setup.accounts.alice_key.public_key },
+            );
+            let mut serialized_signature = Default::default();
+            signature.serialize(ref serialized_signature);
+
             TestClaim {
                 claim_id,
                 identity,
@@ -39,9 +45,7 @@ pub mod add_claim {
                 topic: claim_topic,
                 scheme: 1,
                 data: claim_data,
-                signature: Signature::StarkSignature(
-                    StarkSignature { r, s, public_key: *setup.accounts.alice_key.public_key },
-                ),
+                signature: serialized_signature.span(),
                 uri: "https://example.com",
             }
         }
@@ -53,6 +57,14 @@ pub mod add_claim {
             let claim_topic = 42_felt252;
             let claim_id = poseidon_hash_span(array![identity.into(), claim_topic].span());
 
+            let signature = Signature::StarkSignature(
+                StarkSignature {
+                    r: '', s: '', public_key: setup.accounts.claim_issuer_key.public_key,
+                },
+            );
+            let mut serialized_signature = Default::default();
+            signature.serialize(ref serialized_signature);
+
             let self_attested_claim = TestClaim {
                 claim_id,
                 identity,
@@ -60,11 +72,7 @@ pub mod add_claim {
                 topic: claim_topic,
                 scheme: 1,
                 data: "0xC0FFEE",
-                signature: Signature::StarkSignature(
-                    StarkSignature {
-                        r: '', s: '', public_key: setup.accounts.claim_issuer_key.public_key,
-                    },
-                ),
+                signature: serialized_signature.span(),
                 uri: "https://example.com",
             };
             let mut spy = spy_events();
@@ -281,6 +289,11 @@ pub mod add_claim {
                     .span(),
             );
             let (r, s) = setup.accounts.claim_issuer_key.sign(hashed_invalid_claim).unwrap();
+            let invalid_signature = Signature::StarkSignature(
+                StarkSignature { r, s, public_key: setup.accounts.claim_issuer_key.public_key },
+            );
+            let mut serialized_signature = Default::default();
+            invalid_signature.serialize(ref serialized_signature);
 
             start_cheat_caller_address(
                 setup.alice_identity.contract_address,
@@ -292,11 +305,7 @@ pub mod add_claim {
                     test_claim.topic,
                     test_claim.scheme,
                     test_claim.issuer,
-                    Signature::StarkSignature(
-                        StarkSignature {
-                            r, s, public_key: setup.accounts.claim_issuer_key.public_key,
-                        },
-                    ),
+                    serialized_signature.span(),
                     test_claim.data.clone(),
                     test_claim.uri.clone(),
                 );
@@ -331,15 +340,21 @@ pub mod add_claim {
             );
             setup.alice_identity.approve(execution_id, true);
             stop_cheat_caller_address(setup.alice_identity.contract_address);
-            let (topic, scheme, issuer, signature, data, uri) = setup
+            let (topic, scheme, issuer, mut signature, data, uri) = setup
                 .alice_identity
                 .get_claim(test_claim.claim_id);
 
             assert!(topic == test_claim.topic, "Stored claim topic does not match");
             assert!(scheme == test_claim.scheme, "Stored scheme does not match");
             assert!(issuer == test_claim.issuer, "Stored issuer does not match");
-            if let Signature::StarkSignature(stored_sig) = signature {
-                if let Signature::StarkSignature(actual_sig) = test_claim.signature {
+
+            let mut test_signature_span = test_claim.signature;
+            if let Signature::StarkSignature(stored_sig) =
+                Serde::<Signature>::deserialize(ref signature)
+                .unwrap() {
+                if let Signature::StarkSignature(actual_sig) =
+                    Serde::<Signature>::deserialize(ref test_signature_span)
+                    .unwrap() {
                     assert!(
                         stored_sig.r == actual_sig.r
                             && stored_sig.s == actual_sig.s
@@ -395,15 +410,20 @@ pub mod add_claim {
                 );
             stop_cheat_caller_address(setup.alice_identity.contract_address);
 
-            let (topic, scheme, issuer, signature, data, uri) = setup
+            let (topic, scheme, issuer, mut signature, data, uri) = setup
                 .alice_identity
                 .get_claim(test_claim.claim_id);
 
             assert!(topic == test_claim.topic, "Stored claim topic does not match");
             assert!(scheme == test_claim.scheme, "Stored scheme does not match");
             assert!(issuer == test_claim.issuer, "Stored issuer does not match");
-            if let Signature::StarkSignature(stored_sig) = signature {
-                if let Signature::StarkSignature(actual_sig) = test_claim.signature {
+            let mut test_signature_span = test_claim.signature;
+            if let Signature::StarkSignature(stored_sig) =
+                Serde::<Signature>::deserialize(ref signature)
+                .unwrap() {
+                if let Signature::StarkSignature(actual_sig) =
+                    Serde::<Signature>::deserialize(ref test_signature_span)
+                    .unwrap() {
                     assert!(
                         stored_sig.r == actual_sig.r
                             && stored_sig.s == actual_sig.s
@@ -506,6 +526,11 @@ pub mod update_claim {
         );
 
         let (r, s) = setup.accounts.claim_issuer_key.sign(hashed_claim).unwrap();
+        let signature = Signature::StarkSignature(
+            StarkSignature { r, s, public_key: setup.accounts.claim_issuer_key.public_key },
+        );
+        let mut serialized_signature = Default::default();
+        signature.serialize(ref serialized_signature);
 
         let test_claim_updated = TestClaim {
             claim_id: test_claim.claim_id,
@@ -514,9 +539,7 @@ pub mod update_claim {
             topic: test_claim.topic,
             scheme: test_claim.scheme,
             data: new_data,
-            signature: Signature::StarkSignature(
-                StarkSignature { r, s, public_key: setup.accounts.claim_issuer_key.public_key },
-            ),
+            signature: serialized_signature.span(),
             uri: "https://example.com",
         };
 
@@ -537,15 +560,17 @@ pub mod update_claim {
             );
         stop_cheat_caller_address(setup.alice_identity.contract_address);
 
-        let (topic, scheme, issuer, signature, data, uri) = setup
+        let (topic, scheme, issuer, mut returned_signature, data, uri) = setup
             .alice_identity
             .get_claim(test_claim.claim_id);
 
         assert!(topic == test_claim_updated.topic, "Stored claim topic does not match");
         assert!(scheme == test_claim_updated.scheme, "Stored scheme does not match");
         assert!(issuer == test_claim_updated.issuer, "Stored issuer does not match");
-        if let Signature::StarkSignature(stored_sig) = signature {
-            if let Signature::StarkSignature(actual_sig) = test_claim_updated.signature {
+        if let Signature::StarkSignature(stored_sig) =
+            Serde::<Signature>::deserialize(ref returned_signature)
+            .unwrap() {
+            if let Signature::StarkSignature(actual_sig) = signature {
                 assert!(
                     stored_sig.r == actual_sig.r
                         && stored_sig.s == actual_sig.s
@@ -759,13 +784,15 @@ pub mod get_claim {
     #[test]
     fn test_should_return_default_values_when_claim_does_not_exist() {
         let setup = setup_identity();
-        let (topic, scheme, issuer, signature, data, uri) = setup
+        let (topic, scheme, issuer, mut signature, data, uri) = setup
             .alice_identity
             .get_claim('non_existing_claim');
         assert!(topic == Zero::zero());
         assert!(scheme == Zero::zero());
         assert!(issuer == Zero::zero());
-        if let Signature::StarkSignature(stored_sig) = signature {
+        if let Signature::StarkSignature(stored_sig) =
+            Serde::<Signature>::deserialize(ref signature)
+            .unwrap() {
             assert!(
                 stored_sig.r == Zero::zero()
                     && stored_sig.s == Zero::zero()
@@ -779,15 +806,20 @@ pub mod get_claim {
     #[test]
     fn test_should_return_claim_data() {
         let setup = setup_identity();
-        let (topic, scheme, issuer, signature, data, uri) = setup
+        let (topic, scheme, issuer, mut signature, data, uri) = setup
             .alice_identity
             .get_claim(setup.alice_claim_666.claim_id);
 
         assert!(topic == setup.alice_claim_666.topic);
         assert!(scheme == setup.alice_claim_666.scheme);
         assert!(issuer == setup.alice_claim_666.issuer);
-        if let Signature::StarkSignature(stored_sig) = signature {
-            if let Signature::StarkSignature(actual_sig) = setup.alice_claim_666.signature {
+        let mut alice_claim_666_signature_span = setup.alice_claim_666.signature;
+        if let Signature::StarkSignature(stored_sig) =
+            Serde::<Signature>::deserialize(ref signature)
+            .unwrap() {
+            if let Signature::StarkSignature(actual_sig) =
+                Serde::<Signature>::deserialize(ref alice_claim_666_signature_span)
+                .unwrap() {
                 assert!(
                     stored_sig.r == actual_sig.r
                         && stored_sig.s == actual_sig.s
@@ -809,13 +841,13 @@ pub mod get_claims_by_topic {
     fn test_should_return_empty_array_when_there_are_no_claim_topics() {
         let setup = setup_identity();
         let claim_ids = setup.alice_identity.get_claim_ids_by_topics('non_existing_topic');
-        assert!(claim_ids == array![]);
+        assert!(claim_ids == [].span());
     }
 
     #[test]
     fn test_should_return_array_of_claim_ids_existing_for_topic() {
         let setup = setup_identity();
         let claim_ids = setup.alice_identity.get_claim_ids_by_topics(setup.alice_claim_666.topic);
-        assert!(claim_ids == array![setup.alice_claim_666.claim_id]);
+        assert!(claim_ids == [setup.alice_claim_666.claim_id].span());
     }
 }
