@@ -1,25 +1,24 @@
-use onchain_id_starknet::storage::structs::Signature;
 use starknet::ContractAddress;
 
 #[starknet::interface]
 pub trait IClaimIssuer<TContractState> {
     fn revoke_claim(ref self: TContractState, claim_id: felt252, identity: ContractAddress) -> bool;
-    fn revoke_claim_by_signature(ref self: TContractState, signature: Signature);
-    fn is_claim_revoked(self: @TContractState, signature: Signature) -> bool;
+    fn revoke_claim_by_signature(ref self: TContractState, signature: Span<felt252>);
+    fn is_claim_revoked(self: @TContractState, signature: Span<felt252>) -> bool;
 }
 
 #[starknet::interface]
 pub trait ClaimIssuerABI<TContractState> {
     // IClaimIssuer
     fn revoke_claim(ref self: TContractState, claim_id: felt252, identity: ContractAddress) -> bool;
-    fn revoke_claim_by_signature(ref self: TContractState, signature: Signature);
-    fn is_claim_revoked(self: @TContractState, signature: Signature) -> bool;
+    fn revoke_claim_by_signature(ref self: TContractState, signature: Span<felt252>);
+    fn is_claim_revoked(self: @TContractState, signature: Span<felt252>) -> bool;
     // IIdentity
     fn is_claim_valid(
         self: @TContractState,
         identity: ContractAddress,
         claim_topic: felt252,
-        signature: Signature,
+        signature: Span<felt252>,
         data: ByteArray,
     ) -> bool;
     // IERC734
@@ -39,13 +38,13 @@ pub trait ClaimIssuerABI<TContractState> {
         topic: felt252,
         scheme: felt252,
         issuer: ContractAddress,
-        signature: Signature,
+        signature: Span<felt252>,
         data: ByteArray,
         uri: ByteArray,
     ) -> felt252;
     fn remove_claim(ref self: TContractState, claim_id: felt252) -> bool;
     fn get_claim(
         self: @TContractState, claim_id: felt252,
-    ) -> (felt252, felt252, ContractAddress, Signature, ByteArray, ByteArray);
-    fn get_claim_ids_by_topics(self: @TContractState, topic: felt252) -> Array<felt252>;
+    ) -> (felt252, felt252, ContractAddress, Span<felt252>, ByteArray, ByteArray);
+    fn get_claim_ids_by_topics(self: @TContractState, topic: felt252) -> Span<felt252>;
 }

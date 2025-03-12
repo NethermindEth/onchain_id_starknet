@@ -1,4 +1,3 @@
-use onchain_id_starknet::storage::structs::Signature;
 use starknet::ContractAddress;
 
 #[starknet::interface]
@@ -7,7 +6,7 @@ pub trait IIdentity<TContractState> {
         self: @TContractState,
         identity: ContractAddress,
         claim_topic: felt252,
-        signature: Signature,
+        signature: Span<felt252>,
         data: ByteArray,
     ) -> bool;
 }
@@ -18,7 +17,7 @@ pub trait IdentityABI<TContractState> {
         ref self: TContractState,
         identity: ContractAddress,
         claim_topic: felt252,
-        signature: Signature,
+        signature: Span<felt252>,
         data: ByteArray,
     ) -> bool;
     // IERC734
@@ -38,13 +37,13 @@ pub trait IdentityABI<TContractState> {
         topic: felt252,
         scheme: felt252,
         issuer: ContractAddress,
-        signature: Signature,
+        signature: Span<felt252>,
         data: ByteArray,
         uri: ByteArray,
     ) -> felt252;
     fn remove_claim(ref self: TContractState, claim_id: felt252) -> bool;
     fn get_claim(
         ref self: TContractState, claim_id: felt252,
-    ) -> (felt252, felt252, ContractAddress, Signature, ByteArray, ByteArray);
-    fn get_claim_ids_by_topics(ref self: TContractState, topic: felt252) -> Array<felt252>;
+    ) -> (felt252, felt252, ContractAddress, Span<felt252>, ByteArray, ByteArray);
+    fn get_claim_ids_by_topics(ref self: TContractState, topic: felt252) -> Span<felt252>;
 }
