@@ -61,7 +61,7 @@ pub mod constructor {
         let mut gateway_ctor_data: Array<felt252> = array![Zero::zero()];
         let empty_array: Array<felt252> = array![];
         empty_array.serialize(ref gateway_ctor_data);
-        gateway_ctor_data.append(starknet::contract_address_const::<'owner_address'>().into());
+        gateway_ctor_data.append('owner_address');
         gateway_contract.deploy(@gateway_ctor_data).unwrap();
     }
 
@@ -83,11 +83,9 @@ pub mod constructor {
             'signer_11',
         ];
 
-        let mut gateway_ctor_data: Array<felt252> = array![
-            starknet::contract_address_const::<'dummy_factory'>().into(),
-        ];
+        let mut gateway_ctor_data: Array<felt252> = array!['dummy_factory'];
         array_with_more_than_ten_signer.serialize(ref gateway_ctor_data);
-        gateway_ctor_data.append(starknet::contract_address_const::<'owner_address'>().into());
+        gateway_ctor_data.append('owner_address');
         gateway_contract.deploy(@gateway_ctor_data).unwrap();
     }
 }

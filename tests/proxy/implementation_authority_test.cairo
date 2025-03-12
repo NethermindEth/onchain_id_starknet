@@ -13,15 +13,15 @@ use snforge_std::{
 use starknet::{ClassHash, ContractAddress};
 
 pub fn INITIAL_CLASS_HASH() -> ClassHash {
-    starknet::class_hash::class_hash_const::<'initial_class_hash'>()
+    'initial_class_hash'.try_into().unwrap()
 }
 
 pub fn UPDATED_CLASS_HASH() -> ClassHash {
-    starknet::class_hash::class_hash_const::<'updated_class_hash'>()
+    'updated_class_hash'.try_into().unwrap()
 }
 
 pub fn OWNER_ADDRESS() -> ContractAddress {
-    starknet::contract_address_const::<'owner'>()
+    'owner'.try_into().unwrap()
 }
 
 fn deploy() -> IImplementationAuthorityDispatcher {

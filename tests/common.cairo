@@ -313,7 +313,7 @@ pub fn setup_identity() -> IdentitySetup {
             .get_identity(factory_setup.accounts.bob_account.contract_address),
     };
 
-    let token_address = starknet::contract_address_const::<'token_address'>();
+    let token_address = 'token_address'.try_into().unwrap();
     factory_setup
         .identity_factory
         .create_token_identity(

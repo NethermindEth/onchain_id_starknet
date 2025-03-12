@@ -15,7 +15,7 @@ use snforge_std::{
 use starknet::ContractAddress;
 
 pub fn OWNER_ADDRESS() -> ContractAddress {
-    starknet::contract_address_const::<'owner'>()
+    'owner'.try_into().unwrap()
 }
 
 pub fn setup_version_manager() -> (
