@@ -25,6 +25,7 @@ pub mod proxy {
 }
 
 pub mod storage {
+    pub mod signature;
     pub mod storage;
     pub mod structs;
 }

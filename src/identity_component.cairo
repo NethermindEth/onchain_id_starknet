@@ -66,7 +66,7 @@ pub mod IdentityComponent {
             self: @ComponentState<TContractState>,
             identity: ContractAddress,
             claim_topic: felt252,
-            signature: Signature,
+            signature: Span<felt252>,
             data: ByteArray,
         ) -> bool {
             let pub_key_hash = get_public_key_hash(signature);
@@ -401,7 +401,7 @@ pub mod IdentityComponent {
             topic: felt252,
             scheme: felt252,
             issuer: ContractAddress,
-            signature: Signature,
+            signature: Span<felt252>,
             data: ByteArray,
             uri: ByteArray,
         ) -> felt252 {
@@ -422,8 +422,12 @@ pub mod IdentityComponent {
             let claim_storage_path = self.Identity_claims.entry(claim_id);
             claim_storage_path.topic.write(topic);
             claim_storage_path.scheme.write(scheme);
-            ///TODO: if convert Signature to Array felt to support multiple verification schemes
-            claim_storage_path.signature.write(signature);
+
+            let signature_storage = claim_storage_path.signature.deref();
+            for chunk in signature {
+                signature_storage.append().write(*chunk);
+            }
+
             claim_storage_path.data.write(data.clone());
             claim_storage_path.uri.write(uri.clone());
 
@@ -480,7 +484,10 @@ pub mod IdentityComponent {
                             topic,
                             scheme: claim_storage_path.scheme.read(),
                             issuer: claim_storage_path.issuer.read(),
-                            signature: claim_storage_path.signature.read(),
+                            signature: MutableFelt252VecToFelt252Array::into(
+                                claim_storage_path.signature.deref(),
+                            )
+                                .span(),
                             data: claim_storage_path.data.read(),
                             uri: claim_storage_path.uri.read(),
                         },
@@ -492,13 +499,13 @@ pub mod IdentityComponent {
 
         fn get_claim(
             self: @ComponentState<TContractState>, claim_id: felt252,
-        ) -> (felt252, felt252, ContractAddress, Signature, ByteArray, ByteArray) {
+        ) -> (felt252, felt252, ContractAddress, Span<felt252>, ByteArray, ByteArray) {
             let claim_storage_path = self.Identity_claims.entry(claim_id);
             (
                 claim_storage_path.topic.read(),
                 claim_storage_path.scheme.read(),
                 claim_storage_path.issuer.read(),
-                claim_storage_path.signature.read(),
+                Felt252VecToFelt252Array::into(claim_storage_path.signature.deref()).span(),
                 claim_storage_path.data.read(),
                 claim_storage_path.uri.read(),
             )
@@ -506,8 +513,8 @@ pub mod IdentityComponent {
 
         fn get_claim_ids_by_topics(
             self: @ComponentState<TContractState>, topic: felt252,
-        ) -> Array<felt252> {
-            self.Identity_claims_by_topic.entry(topic).into()
+        ) -> Span<felt252> {
+            Felt252VecToFelt252Array::into(self.Identity_claims_by_topic.entry(topic)).span()
         }
     }
 
@@ -524,7 +531,7 @@ pub mod IdentityComponent {
             ref self: ComponentState<TContractState>,
             identity: ContractAddress,
             claim_topic: felt252,
-            signature: Signature,
+            signature: Span<felt252>,
             data: ByteArray,
         ) -> bool {
             let mut version_manager_comp = get_dep_component_mut!(ref self, VersionManagerImpl);
@@ -607,7 +614,7 @@ pub mod IdentityComponent {
             topic: felt252,
             scheme: felt252,
             issuer: ContractAddress,
-            signature: Signature,
+            signature: Span<felt252>,
             data: ByteArray,
             uri: ByteArray,
         ) -> felt252 {
@@ -624,7 +631,7 @@ pub mod IdentityComponent {
 
         fn get_claim(
             ref self: ComponentState<TContractState>, claim_id: felt252,
-        ) -> (felt252, felt252, ContractAddress, Signature, ByteArray, ByteArray) {
+        ) -> (felt252, felt252, ContractAddress, Span<felt252>, ByteArray, ByteArray) {
             let mut version_manager_comp = get_dep_component_mut!(ref self, VersionManagerImpl);
             version_manager_comp.assert_up_to_date_implementation();
             ERC735::get_claim(@self, claim_id)
@@ -632,7 +639,7 @@ pub mod IdentityComponent {
 
         fn get_claim_ids_by_topics(
             ref self: ComponentState<TContractState>, topic: felt252,
-        ) -> Array<felt252> {
+        ) -> Span<felt252> {
             let mut version_manager_comp = get_dep_component_mut!(ref self, VersionManagerImpl);
             version_manager_comp.assert_up_to_date_implementation();
             ERC735::get_claim_ids_by_topics(@self, topic)
