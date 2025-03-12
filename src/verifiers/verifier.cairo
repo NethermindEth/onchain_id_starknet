@@ -7,17 +7,14 @@ pub mod VerifierComponent {
     use onchain_id_starknet::interface::iverifier::{
         IClaimTopicsRegistry, ITrustedIssuersRegistry, IVerifier, VerifierABI,
     };
-    use onchain_id_starknet::storage::{
-        storage::{
-            ContractAddressVecToContractAddressArray, Felt252VecToFelt252Array,
-            MutableContractAddressVecToContractAddressArray, MutableFelt252VecToFelt252Array,
-            MutableStorageArrayTrait, StorageArrayContractAddress, StorageArrayFelt252,
-            StorageArrayTrait,
-        },
+    use onchain_id_starknet::storage::storage::{
+        ContractAddressVecToContractAddressArray, Felt252VecToFelt252Array,
+        MutableContractAddressVecToContractAddressArray, MutableFelt252VecToFelt252Array,
+        MutableStorageArrayTrait, StorageArrayContractAddress, StorageArrayFelt252,
+        StorageArrayTrait,
     };
-    use openzeppelin_access::ownable::ownable::{
-        OwnableComponent, OwnableComponent::InternalTrait as OwnableInternalTrait,
-    };
+    use openzeppelin_access::ownable::ownable::OwnableComponent;
+    use openzeppelin_access::ownable::ownable::OwnableComponent::InternalTrait as OwnableInternalTrait;
     use starknet::ContractAddress;
     use starknet::storage::{
         Map, StorageAsPath, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
@@ -100,7 +97,7 @@ pub mod VerifierComponent {
                 .as_path();
             if (required_claim_topics_storage_path.len() == 0) {
                 return false;
-            };
+            }
 
             for i in 0..required_claim_topics_storage_path.len() {
                 let mut claim_topic = required_claim_topics_storage_path.at(i).read();
@@ -113,7 +110,7 @@ pub mod VerifierComponent {
                 if claim_topics_to_trusted_issuers_storage_path.len() == 0 {
                     verified = false;
                     break;
-                };
+                }
                 for j in 0..claim_topics_to_trusted_issuers_storage_path.len() {
                     let mut claim_issuer = claim_topics_to_trusted_issuers_storage_path
                         .at(j)
@@ -122,7 +119,7 @@ pub mod VerifierComponent {
                         .append(
                             poseidon_hash_span(array![claim_issuer.into(), claim_topic].span()),
                         );
-                };
+                }
 
                 let mut j = 0;
                 while j != claim_ids.len() {
@@ -136,7 +133,7 @@ pub mod VerifierComponent {
 
                         if _validity {
                             j = claim_ids.len();
-                        };
+                        }
 
                         if !_validity && j == claim_ids.len() - 1 {
                             verified = false;
@@ -145,13 +142,13 @@ pub mod VerifierComponent {
                     } else if j == claim_ids.len() - 1 {
                         verified = false;
                         break;
-                    };
+                    }
                     j += 1;
-                };
+                }
                 if !verified {
                     break;
                 };
-            };
+            }
 
             verified
         }
@@ -166,7 +163,7 @@ pub mod VerifierComponent {
                     is_required = true;
                     break;
                 };
-            };
+            }
             is_required
         }
     }
@@ -191,7 +188,7 @@ pub mod VerifierComponent {
                     required_claim_topics_storage_path.at(i).read() != claim_topic,
                     Errors::TOPIC_EXIST,
                 )
-            };
+            }
 
             required_claim_topics_storage_path.append().write(claim_topic);
             self.emit(ClaimTopicAdded { claim_topic });
@@ -249,7 +246,7 @@ pub mod VerifierComponent {
                     .append()
                     .write(trusted_issuer);
                 trusted_issuer_claim_topics_storage_path.append().write(claim_topic);
-            };
+            }
             self.emit(TrustedIssuerAdded { trusted_issuer: trusted_issuer, claim_topics })
         }
         fn remove_trusted_issuer(
@@ -292,7 +289,7 @@ pub mod VerifierComponent {
                         break;
                     };
                 };
-            };
+            }
 
             trusted_issuer_claim_topics_storage_path.clear();
             for i in 0..trusted_issuers_storage_path.len() {
@@ -300,7 +297,7 @@ pub mod VerifierComponent {
                     trusted_issuers_storage_path.delete(i);
                     break;
                 };
-            };
+            }
             self.emit(TrustedIssuerRemoved { trusted_issuer: trusted_issuer });
         }
         fn update_issuer_claim_topics(
@@ -339,7 +336,7 @@ pub mod VerifierComponent {
                         break;
                     }
                 }
-            };
+            }
 
             //delete the claim topic from issuer
             trusted_issuer_claim_topics_storage_path.clear();
@@ -351,7 +348,7 @@ pub mod VerifierComponent {
                     .entry(claim_topic)
                     .append()
                     .write(trusted_issuer);
-            };
+            }
             self.emit(TrustedIssuerAdded { trusted_issuer: trusted_issuer, claim_topics });
         }
         fn get_trusted_issuers(self: @ComponentState<TContractState>) -> Array<ContractAddress> {
@@ -392,7 +389,7 @@ pub mod VerifierComponent {
                     has_claim = true;
                     break;
                 };
-            };
+            }
             has_claim
         }
     }

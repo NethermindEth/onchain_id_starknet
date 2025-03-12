@@ -1,17 +1,18 @@
 pub mod add_claim {
     pub mod when_self_attested_claim {
         use core::poseidon::poseidon_hash_span;
-        use crate::common::{IdentitySetup, TestClaim, setup_identity};
-        use onchain_id_starknet::interface::{ierc735, iidentity::IdentityABIDispatcherTrait};
-        use onchain_id_starknet::storage::structs::{Signature, StarkSignature};
-        use snforge_std::{
-            EventSpyAssertionsTrait,
-            signature::{
-                SignerTrait,
-                stark_curve::{StarkCurveKeyPairImpl, StarkCurveSignerImpl, StarkCurveVerifierImpl},
-            },
-            spy_events, start_cheat_caller_address, stop_cheat_caller_address,
+        use onchain_id_starknet::interface::ierc735;
+        use onchain_id_starknet::interface::iidentity::IdentityABIDispatcherTrait;
+        use onchain_id_starknet::storage::signature::{Signature, StarkSignature};
+        use snforge_std::signature::SignerTrait;
+        use snforge_std::signature::stark_curve::{
+            StarkCurveKeyPairImpl, StarkCurveSignerImpl, StarkCurveVerifierImpl,
         };
+        use snforge_std::{
+            EventSpyAssertionsTrait, spy_events, start_cheat_caller_address,
+            stop_cheat_caller_address,
+        };
+        use crate::common::{IdentitySetup, TestClaim, setup_identity};
 
         fn get_self_attested_claim(setup: @IdentitySetup) -> TestClaim {
             let identity = *setup.alice_identity.contract_address;
@@ -251,17 +252,18 @@ pub mod add_claim {
 
     pub mod when_issued_by_claim_issuer {
         use core::poseidon::poseidon_hash_span;
-        use crate::common::{get_test_claim, setup_identity};
-        use onchain_id_starknet::interface::{ierc735, iidentity::IdentityABIDispatcherTrait};
-        use onchain_id_starknet::storage::structs::{Signature, StarkSignature};
-        use snforge_std::{
-            EventSpyAssertionsTrait,
-            signature::{
-                SignerTrait,
-                stark_curve::{StarkCurveKeyPairImpl, StarkCurveSignerImpl, StarkCurveVerifierImpl},
-            },
-            spy_events, start_cheat_caller_address, stop_cheat_caller_address,
+        use onchain_id_starknet::interface::ierc735;
+        use onchain_id_starknet::interface::iidentity::IdentityABIDispatcherTrait;
+        use onchain_id_starknet::storage::signature::{Signature, StarkSignature};
+        use snforge_std::signature::SignerTrait;
+        use snforge_std::signature::stark_curve::{
+            StarkCurveKeyPairImpl, StarkCurveSignerImpl, StarkCurveVerifierImpl,
         };
+        use snforge_std::{
+            EventSpyAssertionsTrait, spy_events, start_cheat_caller_address,
+            stop_cheat_caller_address,
+        };
+        use crate::common::{get_test_claim, setup_identity};
 
         #[test]
         #[should_panic(expected: 'Invalid claim')]
@@ -460,17 +462,17 @@ pub mod add_claim {
 
 pub mod update_claim {
     use core::poseidon::poseidon_hash_span;
-    use crate::common::{TestClaim, get_test_claim, setup_identity};
-    use onchain_id_starknet::interface::{ierc735, iidentity::IdentityABIDispatcherTrait};
-    use onchain_id_starknet::storage::structs::{Signature, StarkSignature};
-    use snforge_std::{
-        EventSpyAssertionsTrait,
-        signature::{
-            SignerTrait,
-            stark_curve::{StarkCurveKeyPairImpl, StarkCurveSignerImpl, StarkCurveVerifierImpl},
-        },
-        spy_events, start_cheat_caller_address, stop_cheat_caller_address,
+    use onchain_id_starknet::interface::ierc735;
+    use onchain_id_starknet::interface::iidentity::IdentityABIDispatcherTrait;
+    use onchain_id_starknet::storage::signature::{Signature, StarkSignature};
+    use snforge_std::signature::SignerTrait;
+    use snforge_std::signature::stark_curve::{
+        StarkCurveKeyPairImpl, StarkCurveSignerImpl, StarkCurveVerifierImpl,
     };
+    use snforge_std::{
+        EventSpyAssertionsTrait, spy_events, start_cheat_caller_address, stop_cheat_caller_address,
+    };
+    use crate::common::{TestClaim, get_test_claim, setup_identity};
 
     #[test]
     fn test_should_replace_existing_claim() {
@@ -579,11 +581,12 @@ pub mod update_claim {
 
 pub mod remove_claim {
     use core::num::traits::Zero;
-    use crate::common::{get_test_claim, setup_identity};
-    use onchain_id_starknet::interface::{ierc735, iidentity::IdentityABIDispatcherTrait};
+    use onchain_id_starknet::interface::ierc735;
+    use onchain_id_starknet::interface::iidentity::IdentityABIDispatcherTrait;
     use snforge_std::{
         EventSpyAssertionsTrait, spy_events, start_cheat_caller_address, stop_cheat_caller_address,
     };
+    use crate::common::{get_test_claim, setup_identity};
 
     #[test]
     fn test_should_remove_existing_claim_when_caller_is_identity_contract() {
@@ -749,9 +752,9 @@ pub mod remove_claim {
 
 pub mod get_claim {
     use core::num::traits::Zero;
-    use crate::common::setup_identity;
     use onchain_id_starknet::interface::iidentity::IdentityABIDispatcherTrait;
-    use onchain_id_starknet::storage::structs::Signature;
+    use onchain_id_starknet::storage::signature::Signature;
+    use crate::common::setup_identity;
 
     #[test]
     fn test_should_return_default_values_when_claim_does_not_exist() {
@@ -799,8 +802,8 @@ pub mod get_claim {
 }
 
 pub mod get_claims_by_topic {
-    use crate::common::setup_identity;
     use onchain_id_starknet::interface::iidentity::IdentityABIDispatcherTrait;
+    use crate::common::setup_identity;
 
     #[test]
     fn test_should_return_empty_array_when_there_are_no_claim_topics() {

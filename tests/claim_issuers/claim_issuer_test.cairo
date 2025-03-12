@@ -1,10 +1,10 @@
 pub mod revoke_claim_by_signature_test {
-    use crate::common::{setup_identity};
     use onchain_id_starknet::claim_issuer::ClaimIssuer;
-    use onchain_id_starknet::interface::{iclaim_issuer::ClaimIssuerABIDispatcherTrait};
+    use onchain_id_starknet::interface::iclaim_issuer::ClaimIssuerABIDispatcherTrait;
     use snforge_std::{
         EventSpyAssertionsTrait, spy_events, start_cheat_caller_address, stop_cheat_caller_address,
     };
+    use crate::common::setup_identity;
 
     #[test]
     #[should_panic(expected: 'Sender not have management key')]
@@ -66,12 +66,12 @@ pub mod revoke_claim_by_signature_test {
 }
 
 pub mod revoke_claim {
-    use crate::common::{setup_identity};
     use onchain_id_starknet::claim_issuer::ClaimIssuer;
-    use onchain_id_starknet::interface::{iclaim_issuer::ClaimIssuerABIDispatcherTrait};
+    use onchain_id_starknet::interface::iclaim_issuer::ClaimIssuerABIDispatcherTrait;
     use snforge_std::{
         EventSpyAssertionsTrait, spy_events, start_cheat_caller_address, stop_cheat_caller_address,
     };
+    use crate::common::setup_identity;
 
     #[test]
     #[should_panic(expected: 'Sender not have management key')]
@@ -142,16 +142,14 @@ pub mod revoke_claim {
 
 pub mod is_claim_valid {
     use core::poseidon::poseidon_hash_span;
-    use crate::common::{get_test_claim, setup_identity};
-    use onchain_id_starknet::interface::{iclaim_issuer::ClaimIssuerABIDispatcherTrait};
-    use onchain_id_starknet::storage::structs::{Signature, StarkSignature};
-    use snforge_std::{
-        signature::{
-            SignerTrait,
-            stark_curve::{StarkCurveKeyPairImpl, StarkCurveSignerImpl, StarkCurveVerifierImpl},
-        },
-        start_cheat_caller_address, stop_cheat_caller_address,
+    use onchain_id_starknet::interface::iclaim_issuer::ClaimIssuerABIDispatcherTrait;
+    use onchain_id_starknet::storage::signature::{Signature, StarkSignature};
+    use snforge_std::signature::SignerTrait;
+    use snforge_std::signature::stark_curve::{
+        StarkCurveKeyPairImpl, StarkCurveSignerImpl, StarkCurveVerifierImpl,
     };
+    use snforge_std::{start_cheat_caller_address, stop_cheat_caller_address};
+    use crate::common::{get_test_claim, setup_identity};
 
     #[test]
     fn test_should_return_false_when_key_does_not_have_claim_or_management_purpose() {

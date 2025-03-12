@@ -2,25 +2,21 @@
 pub mod IdentityComponent {
     use core::num::traits::Zero;
     use core::poseidon::poseidon_hash_span;
-    use onchain_id_starknet::interface::{
-        ierc734, ierc734::{ERC734Event, IERC734}, ierc735, ierc735::{ERC735Event, IERC735},
-        iidentity::{IIdentity, IIdentityDispatcher, IIdentityDispatcherTrait, IdentityABI},
+    use onchain_id_starknet::interface::ierc734::{ERC734Event, IERC734};
+    use onchain_id_starknet::interface::ierc735::{ERC735Event, IERC735};
+    use onchain_id_starknet::interface::iidentity::{
+        IIdentity, IIdentityDispatcher, IIdentityDispatcherTrait, IdentityABI,
     };
-    use onchain_id_starknet::proxy::version_manager::{
-        VersionManagerComponent,
-        VersionManagerComponent::InternalTrait as VersionManagerInternalTrait,
+    use onchain_id_starknet::interface::{ierc734, ierc735};
+    use onchain_id_starknet::proxy::version_manager::VersionManagerComponent;
+    use onchain_id_starknet::proxy::version_manager::VersionManagerComponent::InternalTrait as VersionManagerInternalTrait;
+    use onchain_id_starknet::storage::signature::{get_public_key_hash, is_valid_signature};
+    use onchain_id_starknet::storage::storage::{
+        Felt252VecToFelt252Array, MutableFelt252VecToFelt252Array,
+        MutableStorageArrayFelt252IndexView, MutableStorageArrayTrait, StorageArrayFelt252,
+        StorageArrayFelt252IndexView, StorageArrayTrait,
     };
-    use onchain_id_starknet::storage::{
-        storage::{
-            Felt252VecToFelt252Array, MutableFelt252VecToFelt252Array,
-            MutableStorageArrayFelt252IndexView, MutableStorageArrayTrait, StorageArrayFelt252,
-            StorageArrayFelt252IndexView, StorageArrayTrait,
-        },
-        structs::{
-            Claim, Execution, Key, Signature, delete_claim, delete_key, get_public_key_hash,
-            is_valid_signature,
-        },
-    };
+    use onchain_id_starknet::storage::structs::{Claim, Execution, Key, delete_claim, delete_key};
     use onchain_id_starknet::version::version::VersionComponent;
     use openzeppelin_upgrades::upgradeable::UpgradeableComponent;
     use starknet::ContractAddress;
@@ -77,6 +73,7 @@ pub mod IdentityComponent {
             if !self.key_has_purpose(pub_key_hash, 3) {
                 return false;
             }
+
             // NOTE: How about comply with SNIP12
             let mut serialized_claim: Array<felt252> = array![];
             identity.serialize(ref serialized_claim);
@@ -128,7 +125,7 @@ pub mod IdentityComponent {
                     assert(
                         purpose != purposes_storage_path[i].read(), Errors::KEY_ALREADY_HAS_PURPOSE,
                     );
-                };
+                }
                 purposes_storage_path.append().write(purpose);
             } else {
                 key_storage_path.key.write(key);
@@ -172,7 +169,7 @@ pub mod IdentityComponent {
                     purpose_index = Option::Some(i);
                     break;
                 }
-            };
+            }
             assert(purpose_index != Option::None, Errors::KEY_DOES_NOT_HAVE_PURPOSE);
             purposes_storage_path.delete(purpose_index.unwrap());
 
@@ -188,7 +185,7 @@ pub mod IdentityComponent {
                     key_index = i;
                     break;
                 }
-            };
+            }
             keys_by_purpose_key_storage_path.delete(key_index);
             let key_type = key_storage_path.key_type.read();
 
@@ -286,7 +283,7 @@ pub mod IdentityComponent {
             let calldata_storage_path = execution_storage_path.calldata.deref();
             for chunk in calldata.clone() {
                 calldata_storage_path.append().write(*chunk);
-            };
+            }
 
             self.Identity_execution_nonce.write(execution_nonce + 1);
 
@@ -390,7 +387,7 @@ pub mod IdentityComponent {
                     has_purpose = true;
                     break;
                 }
-            };
+            }
             has_purpose
         }
     }
@@ -468,7 +465,7 @@ pub mod IdentityComponent {
                     claim_index = Option::Some(i);
                     break;
                 }
-            };
+            }
             assert(
                 claim_index != Option::None, Errors::CLAIM_DOES_NOT_EXIST,
             ); // NOTE: this check might not be necessary due to above assertion we might assume claim_id will always be there

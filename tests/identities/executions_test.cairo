@@ -10,13 +10,14 @@ fn deploy_simple_storage() -> ISimpleStorageDispatcher {
 pub mod execute {
     pub mod when_management_key {
         use core::poseidon::poseidon_hash_span;
-        use crate::common::setup_identity;
-        use onchain_id_starknet::interface::{ierc734, iidentity::IdentityABIDispatcherTrait};
+        use onchain_id_starknet::interface::ierc734;
+        use onchain_id_starknet::interface::iidentity::IdentityABIDispatcherTrait;
         use onchain_id_starknet::mocks::mock_simple_storage::ISimpleStorageDispatcherTrait;
         use snforge_std::{
             EventSpyAssertionsTrait, spy_events, start_cheat_caller_address,
             stop_cheat_caller_address,
         };
+        use crate::common::setup_identity;
         use super::super::deploy_simple_storage;
 
         #[test]
@@ -157,13 +158,14 @@ pub mod execute {
 
     pub mod when_action_key {
         use core::poseidon::poseidon_hash_span;
-        use crate::common::setup_identity;
-        use onchain_id_starknet::interface::{ierc734, iidentity::IdentityABIDispatcherTrait};
+        use onchain_id_starknet::interface::ierc734;
+        use onchain_id_starknet::interface::iidentity::IdentityABIDispatcherTrait;
         use onchain_id_starknet::mocks::mock_simple_storage::ISimpleStorageDispatcherTrait;
         use snforge_std::{
             EventSpyAssertionsTrait, spy_events, start_cheat_caller_address,
             stop_cheat_caller_address,
         };
+        use crate::common::setup_identity;
         use super::super::deploy_simple_storage;
 
         #[test]
@@ -278,12 +280,13 @@ pub mod execute {
     }
 
     pub mod when_non_action_key {
-        use crate::common::setup_identity;
-        use onchain_id_starknet::interface::{ierc734, iidentity::IdentityABIDispatcherTrait};
+        use onchain_id_starknet::interface::ierc734;
+        use onchain_id_starknet::interface::iidentity::IdentityABIDispatcherTrait;
         use snforge_std::{
             EventSpyAssertionsTrait, spy_events, start_cheat_caller_address,
             stop_cheat_caller_address,
         };
+        use crate::common::setup_identity;
         use super::super::deploy_simple_storage;
 
         #[test]
@@ -321,12 +324,13 @@ pub mod execute {
 
 pub mod approve {
     use core::poseidon::poseidon_hash_span;
-    use crate::common::setup_identity;
-    use onchain_id_starknet::interface::{ierc734, iidentity::IdentityABIDispatcherTrait};
+    use onchain_id_starknet::interface::ierc734;
+    use onchain_id_starknet::interface::iidentity::IdentityABIDispatcherTrait;
     use onchain_id_starknet::mocks::mock_simple_storage::ISimpleStorageDispatcherTrait;
     use snforge_std::{
         EventSpyAssertionsTrait, spy_events, start_cheat_caller_address, stop_cheat_caller_address,
     };
+    use crate::common::setup_identity;
     use super::deploy_simple_storage;
 
     #[test]

@@ -1,11 +1,9 @@
 #[starknet::contract]
 pub mod ClaimIssuer {
     use onchain_id_starknet::identity_component::IdentityComponent;
-    use onchain_id_starknet::interface::{
-        iclaim_issuer::IClaimIssuer, ierc735::{IERC735Dispatcher, IERC735DispatcherTrait},
-        iidentity::IIdentity,
-    };
-    use onchain_id_starknet::storage::structs::Signature;
+    use onchain_id_starknet::interface::iclaim_issuer::IClaimIssuer;
+    use onchain_id_starknet::interface::ierc735::{IERC735Dispatcher, IERC735DispatcherTrait};
+    use onchain_id_starknet::interface::iidentity::IIdentity;
     use onchain_id_starknet::version::version::VersionComponent;
     use starknet::ContractAddress;
     use starknet::storage::{
@@ -27,7 +25,7 @@ pub mod ClaimIssuer {
 
     #[storage]
     struct Storage {
-        revoked_claims: Map<Signature, bool>,
+        revoked_claims: Map<felt252, bool>,
         #[substorage(v0)]
         identity: IdentityComponent::Storage,
         #[substorage(v0)]
@@ -47,7 +45,7 @@ pub mod ClaimIssuer {
     #[derive(Drop, starknet::Event)]
     pub struct ClaimRevoked {
         #[key]
-        pub signature: Signature,
+        pub signature: Span<felt252>,
     }
 
     pub mod Errors {
@@ -61,7 +59,7 @@ pub mod ClaimIssuer {
 
     #[abi(embed_v0)]
     impl ClaimIssuerImpl of IClaimIssuer<ContractState> {
-        fn revoke_claim_by_signature(ref self: ContractState, signature: Signature) {
+        fn revoke_claim_by_signature(ref self: ContractState, signature: Span<felt252>) {
             self.identity.only_manager();
             self._revoke_claim_by_signature(signature);
         }
@@ -78,8 +76,9 @@ pub mod ClaimIssuer {
             true
         }
 
-        fn is_claim_revoked(self: @ContractState, signature: Signature) -> bool {
-            self.revoked_claims.entry(signature).read()
+        fn is_claim_revoked(self: @ContractState, signature: Span<felt252>) -> bool {
+            let sig_hash = core::poseidon::poseidon_hash_span(signature);
+            self.revoked_claims.entry(sig_hash).read()
         }
     }
 
@@ -89,10 +88,10 @@ pub mod ClaimIssuer {
             self: @ContractState,
             identity: ContractAddress,
             claim_topic: felt252,
-            signature: Signature,
+            signature: Span<felt252>,
             data: ByteArray,
         ) -> bool {
-            if self.is_claim_revoked(signature) {
+            if self.is_claim_revoked(signature.clone()) {
                 return false;
             }
             self.identity.is_claim_valid(identity, claim_topic, signature, data)
@@ -102,8 +101,9 @@ pub mod ClaimIssuer {
     #[generate_trait]
     impl InternalImpl of InternalTrait {
         #[inline]
-        fn _revoke_claim_by_signature(ref self: ContractState, signature: Signature) {
-            let revoked_claim_storage_path = self.revoked_claims.entry(signature);
+        fn _revoke_claim_by_signature(ref self: ContractState, signature: Span<felt252>) {
+            let sig_hash = core::poseidon::poseidon_hash_span(signature);
+            let revoked_claim_storage_path = self.revoked_claims.entry(sig_hash);
             assert(!revoked_claim_storage_path.read(), Errors::CLAIM_ALREADY_REVOKED);
             revoked_claim_storage_path.write(true);
             self.emit(ClaimRevoked { signature });

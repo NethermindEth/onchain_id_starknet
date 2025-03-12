@@ -47,9 +47,8 @@ pub mod Gateway {
     use onchain_id_starknet::factory::iid_factory::{
         IIdFactoryDispatcher, IIdFactoryDispatcherTrait,
     };
-    use openzeppelin_access::ownable::{
-        interface::{IOwnableDispatcher, IOwnableDispatcherTrait}, ownable::OwnableComponent,
-    };
+    use openzeppelin_access::ownable::interface::{IOwnableDispatcher, IOwnableDispatcherTrait};
+    use openzeppelin_access::ownable::ownable::OwnableComponent;
     use starknet::ContractAddress;
     use starknet::storage::{
         Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
@@ -166,7 +165,7 @@ pub mod Gateway {
 
         for signer in signers_to_approve {
             self.approved_signers.entry(signer).write(true);
-        };
+        }
 
         self.id_factory.write(id_factory_address);
     }
@@ -188,7 +187,7 @@ pub mod Gateway {
 
             if signer.is_zero() {
                 Errors::ZeroAddress();
-            };
+            }
 
             let approved_signer_storage_path = self.approved_signers.entry(signer);
             if approved_signer_storage_path.read() {

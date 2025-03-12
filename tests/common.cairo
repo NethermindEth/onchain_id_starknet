@@ -1,22 +1,22 @@
 use core::poseidon::poseidon_hash_span;
 use onchain_id_starknet::factory::iid_factory::{IIdFactoryDispatcher, IIdFactoryDispatcherTrait};
-use onchain_id_starknet::interface::{
-    iclaim_issuer::{ClaimIssuerABIDispatcher, ClaimIssuerABIDispatcherTrait},
-    iidentity::{IdentityABIDispatcher, IdentityABIDispatcherTrait},
-    iimplementation_authority::IImplementationAuthorityDispatcher,
-    iverifier::{VerifierABIDispatcher, VerifierABIDispatcherTrait},
+use onchain_id_starknet::interface::iclaim_issuer::{
+    ClaimIssuerABIDispatcher, ClaimIssuerABIDispatcherTrait,
 };
-use onchain_id_starknet::storage::structs::{Signature, StarkSignature};
+use onchain_id_starknet::interface::iidentity::{IdentityABIDispatcher, IdentityABIDispatcherTrait};
+use onchain_id_starknet::interface::iimplementation_authority::IImplementationAuthorityDispatcher;
+use onchain_id_starknet::interface::iverifier::{VerifierABIDispatcher, VerifierABIDispatcherTrait};
+use onchain_id_starknet::storage::signature::{Signature, StarkSignature};
+use openzeppelin_account::interface::AccountABIDispatcher;
+use snforge_std::signature::stark_curve::{
+    StarkCurveKeyPairImpl, StarkCurveSignerImpl, StarkCurveVerifierImpl,
+};
+use snforge_std::signature::{KeyPair, KeyPairTrait, SignerTrait};
 use snforge_std::{
-    ContractClassTrait, DeclareResultTrait, declare,
-    signature::{
-        KeyPair, KeyPairTrait, SignerTrait,
-        stark_curve::{StarkCurveKeyPairImpl, StarkCurveSignerImpl, StarkCurveVerifierImpl},
-    },
-    start_cheat_caller_address, stop_cheat_caller_address,
+    ContractClassTrait, DeclareResultTrait, declare, start_cheat_caller_address,
+    stop_cheat_caller_address,
 };
 use starknet::ContractAddress;
-use starknet::account::AccountContractDispatcher;
 
 #[derive(Drop)]
 pub struct TestAccounts {

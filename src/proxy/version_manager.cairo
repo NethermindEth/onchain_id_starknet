@@ -10,12 +10,10 @@ pub mod VersionManagerComponent {
     use onchain_id_starknet::interface::iimplementation_authority::{
         IImplementationAuthorityDispatcher, IImplementationAuthorityDispatcherTrait,
     };
-    use openzeppelin_upgrades::upgradeable::{
-        UpgradeableComponent, UpgradeableComponent::InternalTrait as UpgradeableInternalTrait,
-    };
-    use starknet::ClassHash;
-    use starknet::ContractAddress;
+    use openzeppelin_upgrades::upgradeable::UpgradeableComponent;
+    use openzeppelin_upgrades::upgradeable::UpgradeableComponent::InternalTrait as UpgradeableInternalTrait;
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
+    use starknet::{ClassHash, ContractAddress};
 
     #[storage]
     pub struct Storage {

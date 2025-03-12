@@ -3,11 +3,9 @@ pub mod IdFactory {
     use core::num::traits::Zero;
     use core::poseidon::poseidon_hash_span;
     use onchain_id_starknet::factory::iid_factory::IIdFactory;
-    use onchain_id_starknet::interface::{
-        ierc734::{IERC734Dispatcher, IERC734DispatcherTrait},
-        iimplementation_authority::{
-            IImplementationAuthorityDispatcher, IImplementationAuthorityDispatcherTrait,
-        },
+    use onchain_id_starknet::interface::ierc734::{IERC734Dispatcher, IERC734DispatcherTrait};
+    use onchain_id_starknet::interface::iimplementation_authority::{
+        IImplementationAuthorityDispatcher, IImplementationAuthorityDispatcherTrait,
     };
     use onchain_id_starknet::storage::storage::{
         ContractAddressVecToContractAddressArray, MutableStorageArrayContractAddressIndexView,
@@ -262,7 +260,7 @@ pub mod IdFactory {
                     "wallet is also listed in management keys",
                 );
                 identity_dispatcher.add_key(key, 1, 1);
-            };
+            }
             identity_dispatcher
                 .remove_key(
                     poseidon_hash_span(array![starknet::get_contract_address().into()].span()), 1,
@@ -397,7 +395,7 @@ pub mod IdFactory {
                     wallets_storage_path.delete(wallet_index);
                     break;
                 }
-            };
+            }
             self.emit(WalletUnlinked { wallet: old_wallet, identity: old_wallet_user_identity });
         }
 

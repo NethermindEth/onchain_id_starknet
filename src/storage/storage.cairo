@@ -125,7 +125,7 @@ pub impl Felt252VecToFelt252Array of Into<StoragePath<StorageArrayFelt252>, Arra
         let mut array = array![];
         for i in 0..self.len() {
             array.append(self[i].read());
-        };
+        }
         array
     }
 }
@@ -137,7 +137,7 @@ pub impl MutableFelt252VecToFelt252Array of Into<
         let mut array = array![];
         for i in 0..self.len() {
             array.append(self[i].read());
-        };
+        }
         array
     }
 }
@@ -252,7 +252,7 @@ pub impl ContractAddressVecToContractAddressArray of Into<
         let mut array = array![];
         for i in 0..self.len() {
             array.append(self[i].read());
-        };
+        }
         array
     }
 }
@@ -264,7 +264,7 @@ pub impl MutableContractAddressVecToContractAddressArray of Into<
         let mut array = array![];
         for i in 0..self.len() {
             array.append(self[i].read());
-        };
+        }
         array
     }
 }

@@ -10,8 +10,7 @@ use snforge_std::{
     ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, spy_events,
     start_cheat_caller_address, stop_cheat_caller_address,
 };
-use starknet::ClassHash;
-use starknet::ContractAddress;
+use starknet::{ClassHash, ContractAddress};
 
 pub fn INITIAL_CLASS_HASH() -> ClassHash {
     starknet::class_hash::class_hash_const::<'initial_class_hash'>()

@@ -1,13 +1,12 @@
-use crate::common::{FactorySetup, TestAccounts, setup_factory};
 use onchain_id_starknet::factory::iid_factory::IIdFactoryDispatcher;
 use onchain_id_starknet::gateway::gateway::IGatewayDispatcher;
 use onchain_id_starknet::interface::iimplementation_authority::IImplementationAuthorityDispatcher;
 use openzeppelin_access::ownable::interface::{IOwnableDispatcher, IOwnableDispatcherTrait};
-
 use snforge_std::{
     ContractClassTrait, DeclareResultTrait, declare, start_cheat_caller_address,
     stop_cheat_caller_address,
 };
+use crate::common::{FactorySetup, TestAccounts, setup_factory};
 
 pub const YEAR: u64 = 365 * 24 * 60 * 60;
 
@@ -245,18 +244,17 @@ pub mod revoke_signer {
 pub mod deploy_identity_with_salt {
     use core::num::traits::Zero;
     use core::poseidon::poseidon_hash_span;
-    use onchain_id_starknet::factory::{
-        id_factory::IdFactory, iid_factory::IIdFactoryDispatcherTrait,
-    };
+    use onchain_id_starknet::factory::id_factory::IdFactory;
+    use onchain_id_starknet::factory::iid_factory::IIdFactoryDispatcherTrait;
     use onchain_id_starknet::gateway::gateway::{IGatewayDispatcherTrait, Signature};
     use onchain_id_starknet::interface::iidentity::{
         IdentityABIDispatcher, IdentityABIDispatcherTrait,
     };
+    use snforge_std::signature::SignerTrait;
+    use snforge_std::signature::stark_curve::{StarkCurveKeyPairImpl, StarkCurveSignerImpl};
     use snforge_std::{
-        EventSpyAssertionsTrait,
-        signature::{SignerTrait, stark_curve::{StarkCurveKeyPairImpl, StarkCurveSignerImpl}},
-        spy_events, start_cheat_block_timestamp_global, start_cheat_caller_address,
-        stop_cheat_block_timestamp_global, stop_cheat_caller_address,
+        EventSpyAssertionsTrait, spy_events, start_cheat_block_timestamp_global,
+        start_cheat_caller_address, stop_cheat_block_timestamp_global, stop_cheat_caller_address,
     };
     use super::{setup_factory, setup_gateway};
 
@@ -551,18 +549,17 @@ pub mod deploy_identity_with_salt {
 pub mod deploy_identity_with_salt_and_management_keys {
     use core::num::traits::Zero;
     use core::poseidon::poseidon_hash_span;
-    use onchain_id_starknet::factory::{
-        id_factory::IdFactory, iid_factory::IIdFactoryDispatcherTrait,
-    };
+    use onchain_id_starknet::factory::id_factory::IdFactory;
+    use onchain_id_starknet::factory::iid_factory::IIdFactoryDispatcherTrait;
     use onchain_id_starknet::gateway::gateway::{IGatewayDispatcherTrait, Signature};
     use onchain_id_starknet::interface::iidentity::{
         IdentityABIDispatcher, IdentityABIDispatcherTrait,
     };
+    use snforge_std::signature::SignerTrait;
+    use snforge_std::signature::stark_curve::{StarkCurveKeyPairImpl, StarkCurveSignerImpl};
     use snforge_std::{
-        EventSpyAssertionsTrait,
-        signature::{SignerTrait, stark_curve::{StarkCurveKeyPairImpl, StarkCurveSignerImpl}},
-        spy_events, start_cheat_block_timestamp_global, start_cheat_caller_address,
-        stop_cheat_block_timestamp_global, stop_cheat_caller_address,
+        EventSpyAssertionsTrait, spy_events, start_cheat_block_timestamp_global,
+        start_cheat_caller_address, stop_cheat_block_timestamp_global, stop_cheat_caller_address,
     };
     use super::{setup_factory, setup_gateway};
 
@@ -921,14 +918,12 @@ pub mod deploy_identity_with_salt_and_management_keys {
 pub mod deploy_identity_for_wallet {
     use core::num::traits::Zero;
     use core::poseidon::poseidon_hash_span;
-    use onchain_id_starknet::factory::{
-        id_factory::IdFactory, iid_factory::IIdFactoryDispatcherTrait,
-    };
+    use onchain_id_starknet::factory::id_factory::IdFactory;
+    use onchain_id_starknet::factory::iid_factory::IIdFactoryDispatcherTrait;
     use onchain_id_starknet::gateway::gateway::IGatewayDispatcherTrait;
     use onchain_id_starknet::interface::iidentity::{
         IdentityABIDispatcher, IdentityABIDispatcherTrait,
     };
-
     use snforge_std::{
         EventSpyAssertionsTrait, spy_events, start_cheat_caller_address, stop_cheat_caller_address,
     };
@@ -1075,10 +1070,8 @@ pub mod deploy_identity_for_wallet {
 
 pub mod transfer_factory_ownership {
     use onchain_id_starknet::gateway::gateway::IGatewayDispatcherTrait;
-    use openzeppelin_access::ownable::{
-        OwnableComponent, interface::{IOwnableDispatcher, IOwnableDispatcherTrait},
-    };
-
+    use openzeppelin_access::ownable::OwnableComponent;
+    use openzeppelin_access::ownable::interface::{IOwnableDispatcher, IOwnableDispatcherTrait};
     use snforge_std::{
         EventSpyAssertionsTrait, spy_events, start_cheat_caller_address, stop_cheat_caller_address,
     };
@@ -1140,10 +1133,10 @@ pub mod transfer_factory_ownership {
 pub mod revoke_signature {
     use core::poseidon::poseidon_hash_span;
     use onchain_id_starknet::gateway::gateway::{Gateway, IGatewayDispatcherTrait, Signature};
+    use snforge_std::signature::SignerTrait;
+    use snforge_std::signature::stark_curve::{StarkCurveKeyPairImpl, StarkCurveSignerImpl};
     use snforge_std::{
-        EventSpyAssertionsTrait,
-        signature::{SignerTrait, stark_curve::{StarkCurveKeyPairImpl, StarkCurveSignerImpl}},
-        spy_events, start_cheat_caller_address, stop_cheat_caller_address,
+        EventSpyAssertionsTrait, spy_events, start_cheat_caller_address, stop_cheat_caller_address,
     };
     use super::{setup_factory, setup_gateway};
 
@@ -1257,10 +1250,10 @@ pub mod revoke_signature {
 pub mod approve_signature {
     use core::poseidon::poseidon_hash_span;
     use onchain_id_starknet::gateway::gateway::{Gateway, IGatewayDispatcherTrait, Signature};
+    use snforge_std::signature::SignerTrait;
+    use snforge_std::signature::stark_curve::{StarkCurveKeyPairImpl, StarkCurveSignerImpl};
     use snforge_std::{
-        EventSpyAssertionsTrait,
-        signature::{SignerTrait, stark_curve::{StarkCurveKeyPairImpl, StarkCurveSignerImpl}},
-        spy_events, start_cheat_caller_address, stop_cheat_caller_address,
+        EventSpyAssertionsTrait, spy_events, start_cheat_caller_address, stop_cheat_caller_address,
     };
     use super::{setup_factory, setup_gateway};
 
@@ -1378,9 +1371,8 @@ pub mod approve_signature {
 
 pub mod call_factory {
     use core::num::traits::Zero;
-    use onchain_id_starknet::factory::{
-        id_factory::IdFactory, iid_factory::IIdFactoryDispatcherTrait,
-    };
+    use onchain_id_starknet::factory::id_factory::IdFactory;
+    use onchain_id_starknet::factory::iid_factory::IIdFactoryDispatcherTrait;
     use onchain_id_starknet::gateway::gateway::IGatewayDispatcherTrait;
     use snforge_std::{
         EventSpyAssertionsTrait, spy_events, start_cheat_caller_address, stop_cheat_caller_address,

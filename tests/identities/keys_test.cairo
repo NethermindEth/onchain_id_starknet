@@ -1,7 +1,7 @@
 pub mod read_key_methods {
     use core::poseidon::poseidon_hash_span;
-    use crate::common::setup_identity;
     use onchain_id_starknet::interface::iidentity::IdentityABIDispatcherTrait;
+    use crate::common::setup_identity;
 
     #[test]
     fn test_should_return_full_key_details() {
@@ -74,11 +74,12 @@ pub mod read_key_methods {
 
 pub mod add_key {
     use core::poseidon::poseidon_hash_span;
-    use crate::common::setup_identity;
-    use onchain_id_starknet::interface::{ierc734, iidentity::IdentityABIDispatcherTrait};
+    use onchain_id_starknet::interface::ierc734;
+    use onchain_id_starknet::interface::iidentity::IdentityABIDispatcherTrait;
     use snforge_std::{
         EventSpyAssertionsTrait, spy_events, start_cheat_caller_address, stop_cheat_caller_address,
     };
+    use crate::common::setup_identity;
 
     #[test]
     #[should_panic(expected: 'Sender not have management key')]
@@ -179,11 +180,12 @@ pub mod add_key {
 pub mod remove_key {
     use core::num::traits::Zero;
     use core::poseidon::poseidon_hash_span;
-    use crate::common::setup_identity;
-    use onchain_id_starknet::interface::{ierc734, iidentity::IdentityABIDispatcherTrait};
+    use onchain_id_starknet::interface::ierc734;
+    use onchain_id_starknet::interface::iidentity::IdentityABIDispatcherTrait;
     use snforge_std::{
         EventSpyAssertionsTrait, spy_events, start_cheat_caller_address, stop_cheat_caller_address,
     };
+    use crate::common::setup_identity;
 
     #[test]
     #[should_panic(expected: 'Sender not have management key')]

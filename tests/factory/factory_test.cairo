@@ -1,7 +1,7 @@
 pub mod constructor {
     use core::num::traits::Zero;
-    use crate::common::setup_factory;
     use snforge_std::{ContractClassTrait, DeclareResultTrait, declare};
+    use crate::common::setup_factory;
     #[test]
     #[should_panic]
     fn test_should_panic_when_deployment_when_implementation_authority_zero_address() {
@@ -25,9 +25,9 @@ pub mod constructor {
 
 pub mod create_identity {
     use core::num::traits::Zero;
-    use crate::common::{setup_factory, setup_identity};
     use onchain_id_starknet::factory::iid_factory::IIdFactoryDispatcherTrait;
     use snforge_std::{start_cheat_caller_address, stop_cheat_caller_address};
+    use crate::common::{setup_factory, setup_identity};
 
     #[test]
     #[should_panic(expected: 'Caller is not the owner')]
@@ -92,7 +92,6 @@ pub mod create_identity {
 
 pub mod create_identity_with_management_keys {
     use core::poseidon::poseidon_hash_span;
-    use crate::common::setup_identity;
     use onchain_id_starknet::factory::id_factory::IdFactory;
     use onchain_id_starknet::factory::iid_factory::IIdFactoryDispatcherTrait;
     use onchain_id_starknet::interface::ierc734;
@@ -102,6 +101,7 @@ pub mod create_identity_with_management_keys {
     use snforge_std::{
         EventSpyAssertionsTrait, spy_events, start_cheat_caller_address, stop_cheat_caller_address,
     };
+    use crate::common::setup_identity;
 
     #[test]
     #[should_panic(expected: 'empty list of managent keys')]
@@ -224,13 +224,13 @@ pub mod create_identity_with_management_keys {
 pub mod link_unlink_wallet {
     pub mod link_wallet {
         use core::num::traits::Zero;
-        use crate::common::setup_identity;
         use onchain_id_starknet::factory::id_factory::IdFactory;
         use onchain_id_starknet::factory::iid_factory::IIdFactoryDispatcherTrait;
         use snforge_std::{
             EventSpyAssertionsTrait, spy_events, start_cheat_caller_address,
             stop_cheat_caller_address,
         };
+        use crate::common::setup_identity;
 
         #[test]
         #[should_panic(expected: 'wallet is zero address')]
@@ -322,13 +322,13 @@ pub mod link_unlink_wallet {
 
     pub mod unlink_wallet {
         use core::num::traits::Zero;
-        use crate::common::setup_identity;
         use onchain_id_starknet::factory::id_factory::IdFactory;
         use onchain_id_starknet::factory::iid_factory::IIdFactoryDispatcherTrait;
         use snforge_std::{
             EventSpyAssertionsTrait, spy_events, start_cheat_caller_address,
             stop_cheat_caller_address,
         };
+        use crate::common::setup_identity;
 
         #[test]
         #[should_panic(expected: 'wallet is zero address')]
