@@ -11,11 +11,6 @@ pub mod IdentityComponent {
     use onchain_id_starknet::proxy::version_manager::VersionManagerComponent;
     use onchain_id_starknet::proxy::version_manager::VersionManagerComponent::InternalTrait as VersionManagerInternalTrait;
     use onchain_id_starknet::storage::signature::{get_public_key_hash, is_valid_signature};
-    use onchain_id_starknet::storage::storage::{
-        Felt252VecToFelt252Array, MutableFelt252VecToFelt252Array,
-        MutableStorageArrayFelt252IndexView, MutableStorageArrayTrait, StorageArrayFelt252,
-        StorageArrayFelt252IndexView,
-    };
     use onchain_id_starknet::storage::structs::{
         BitmapTrait, Claim, Execution, KeyDetails, get_all_purposes,
     };
@@ -23,18 +18,18 @@ pub mod IdentityComponent {
     use openzeppelin_upgrades::upgradeable::UpgradeableComponent;
     use starknet::ContractAddress;
     use starknet::storage::{
-        Map, Mutable, StoragePath, StoragePathEntry, StoragePointerReadAccess,
-        StoragePointerWriteAccess,
+        Map, MutableVecTrait, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
+        Vec, VecTrait,
     };
 
     #[storage]
     pub struct Storage {
         Identity_execution_nonce: felt252,
         Identity_keys: Map<felt252, KeyDetails>,
-        Identity_keys_by_purpose: Map<felt252, StorageArrayFelt252>,
+        Identity_keys_by_purpose: Map<felt252, Vec<felt252>>,
         Identity_executions: Map<felt252, Execution>,
         Identity_claims: Map<felt252, Claim>,
-        Identity_claims_by_topic: Map<felt252, StorageArrayFelt252>,
+        Identity_claims_by_topic: Map<felt252, Vec<felt252>>,
     }
 
     #[event]
@@ -132,7 +127,7 @@ pub mod IdentityComponent {
             key_details.key_type = key_type.try_into().expect('Invalid Key Type');
             key_storage_path.write(key_details);
 
-            self.Identity_keys_by_purpose.entry(purpose).append().write(key);
+            self.Identity_keys_by_purpose.entry(purpose).push(key);
             self.emit(ERC734Event::KeyAdded(ierc734::KeyAdded { key, purpose, key_type }));
             true
         }
@@ -178,9 +173,15 @@ pub mod IdentityComponent {
 
             let keys_by_purpose_key_storage_path = self.Identity_keys_by_purpose.entry(purpose);
 
-            for i in 0..keys_by_purpose_key_storage_path.len() {
+            let keys_by_purpose_len = keys_by_purpose_key_storage_path.len();
+            for i in 0..keys_by_purpose_len {
                 if keys_by_purpose_key_storage_path[i].read() == key {
-                    keys_by_purpose_key_storage_path.delete(i);
+                    if i != keys_by_purpose_len - 1 {
+                        let last_element = keys_by_purpose_key_storage_path.pop().unwrap();
+                        keys_by_purpose_key_storage_path[i].write(last_element);
+                    } else {
+                        keys_by_purpose_key_storage_path.pop().unwrap();
+                    }
                     break;
                 }
             }
@@ -237,19 +238,23 @@ pub mod IdentityComponent {
 
             execution_request_status_bitmap = BitmapTrait::set(execution_request_status_bitmap, 0);
             let selector = execution_storage_path.selector.read();
-            let calldata: Span<felt252> = Into::<
-                StoragePath<Mutable<StorageArrayFelt252>>, Array<felt252>,
-            >::into(execution_storage_path.calldata.deref())
-                .span();
+
+            let mut calldata = array![];
+            let calldata_storage = execution_storage_path.calldata.deref();
+            for i in 0..calldata_storage.len() {
+                calldata.append(calldata_storage.at(i).read())
+            }
 
             let execution_result =
-                match starknet::syscalls::call_contract_syscall(to_address, selector, calldata) {
+                match starknet::syscalls::call_contract_syscall(
+                    to_address, selector, calldata.span(),
+                ) {
                 Result::Ok => {
                     self
                         .emit(
                             ERC734Event::Executed(
                                 ierc734::Executed {
-                                    execution_id, to: to_address, selector, data: calldata,
+                                    execution_id, to: to_address, selector, data: calldata.span(),
                                 },
                             ),
                         );
@@ -260,7 +265,7 @@ pub mod IdentityComponent {
                         .emit(
                             ERC734Event::ExecutionFailed(
                                 ierc734::ExecutionFailed {
-                                    execution_id, to: to_address, selector, data: calldata,
+                                    execution_id, to: to_address, selector, data: calldata.span(),
                                 },
                             ),
                         );
@@ -291,7 +296,7 @@ pub mod IdentityComponent {
             execution_storage_path.selector.write(selector);
             let calldata_storage_path = execution_storage_path.calldata.deref();
             for chunk in calldata.clone() {
-                calldata_storage_path.append().write(*chunk);
+                calldata_storage_path.push(*chunk);
             }
 
             self
@@ -363,10 +368,12 @@ pub mod IdentityComponent {
         fn get_keys_by_purpose(
             self: @ComponentState<TContractState>, purpose: felt252,
         ) -> Span<felt252> {
-            Into::<
-                StoragePath<StorageArrayFelt252>, Array<felt252>,
-            >::into(self.Identity_keys_by_purpose.entry(purpose))
-                .span()
+            let mut keys = array![];
+            let keys_storage_path = self.Identity_keys_by_purpose.entry(purpose);
+            for i in 0..keys_storage_path.len() {
+                keys.append(keys_storage_path[i].read());
+            }
+            keys.span()
         }
 
         /// Determines if key has given purpose.
@@ -423,9 +430,9 @@ pub mod IdentityComponent {
             if claim_storage_path.issuer.read() != issuer {
                 let signature_storage = claim_storage_path.signature.deref();
                 for chunk in signature {
-                    signature_storage.append().write(*chunk);
+                    signature_storage.push(*chunk);
                 }
-                self.Identity_claims_by_topic.entry(topic).append().write(claim_id);
+                self.Identity_claims_by_topic.entry(topic).push(claim_id);
                 claim_storage_path.issuer.write(issuer);
                 claim_storage_path.topic.write(topic);
                 self
@@ -438,9 +445,11 @@ pub mod IdentityComponent {
                     );
             } else {
                 let signature_storage = claim_storage_path.signature.deref();
-                signature_storage.clear();
+                // Clear previous signature
+                while signature_storage.pop().is_some() {}
+                // Store new signature
                 for chunk in signature {
-                    signature_storage.append().write(*chunk);
+                    signature_storage.push(*chunk);
                 }
                 self
                     .emit(
@@ -462,7 +471,8 @@ pub mod IdentityComponent {
             assert(topic.is_non_zero(), Errors::CLAIM_DOES_NOT_EXIST);
             let claims_by_topic_storage_path = self.Identity_claims_by_topic.entry(topic);
             let mut claim_index = Option::None;
-            for i in 0..claims_by_topic_storage_path.len() {
+            let claims_by_topic_len = claims_by_topic_storage_path.len();
+            for i in 0..claims_by_topic_len {
                 if claims_by_topic_storage_path[i].read() == claim_id {
                     claim_index = Option::Some(i);
                     break;
@@ -472,7 +482,18 @@ pub mod IdentityComponent {
                 claim_index != Option::None, Errors::CLAIM_DOES_NOT_EXIST,
             ); // NOTE: this check might not be necessary due to above assertion we might assume claim_id will always be there
 
-            claims_by_topic_storage_path.delete(claim_index.unwrap());
+            if claim_index.unwrap() != claims_by_topic_len - 1 {
+                let last_element = claims_by_topic_storage_path.pop().unwrap();
+                claims_by_topic_storage_path[claim_index.unwrap()].write(last_element);
+            } else {
+                claims_by_topic_storage_path.pop().unwrap();
+            }
+
+            let mut signature = array![];
+            let signature_storage = claim_storage_path.signature.deref();
+            for i in 0..signature_storage.len() {
+                signature.append(signature_storage.at(i).read());
+            }
 
             self
                 .emit(
@@ -482,21 +503,20 @@ pub mod IdentityComponent {
                             topic,
                             scheme: claim_storage_path.scheme.read(),
                             issuer: claim_storage_path.issuer.read(),
-                            signature: MutableFelt252VecToFelt252Array::into(
-                                claim_storage_path.signature.deref(),
-                            )
-                                .span(),
+                            signature: signature.span(),
                             data: claim_storage_path.data.read(),
                             uri: claim_storage_path.uri.read(),
                         },
                     ),
                 );
 
-            /// Delete claim data
+            // Delete claim data
             claim_storage_path.topic.write(Default::default());
             claim_storage_path.scheme.write(Default::default());
             claim_storage_path.issuer.write(Zero::zero());
-            claim_storage_path.signature.clear();
+            let signature_storage = claim_storage_path.signature.deref();
+            // Clear signature
+            while signature_storage.pop().is_some() {}
             claim_storage_path.data.write(Default::default());
             claim_storage_path.uri.write(Default::default());
             true
@@ -506,11 +526,17 @@ pub mod IdentityComponent {
             self: @ComponentState<TContractState>, claim_id: felt252,
         ) -> (felt252, felt252, ContractAddress, Span<felt252>, ByteArray, ByteArray) {
             let claim_storage_path = self.Identity_claims.entry(claim_id);
+            let mut signature = array![];
+            let signature_storage = claim_storage_path.signature.deref();
+            for i in 0..signature_storage.len() {
+                signature.append(signature_storage.at(i).read());
+            }
+
             (
                 claim_storage_path.topic.read(),
                 claim_storage_path.scheme.read(),
                 claim_storage_path.issuer.read(),
-                Felt252VecToFelt252Array::into(claim_storage_path.signature.deref()).span(),
+                signature.span(),
                 claim_storage_path.data.read(),
                 claim_storage_path.uri.read(),
             )
@@ -519,7 +545,12 @@ pub mod IdentityComponent {
         fn get_claim_ids_by_topics(
             self: @ComponentState<TContractState>, topic: felt252,
         ) -> Span<felt252> {
-            Felt252VecToFelt252Array::into(self.Identity_claims_by_topic.entry(topic)).span()
+            let mut claim_ids = array![];
+            let claim_ids_storage_path = self.Identity_claims_by_topic.entry(topic);
+            for i in 0..claim_ids_storage_path.len() {
+                claim_ids.append(claim_ids_storage_path[i].read());
+            }
+            claim_ids.span()
         }
     }
 
@@ -667,7 +698,7 @@ pub mod IdentityComponent {
                 .entry(initial_management_key_hash)
                 .write(KeyDetails { purposes: 2, key_type: 1 });
 
-            self.Identity_keys_by_purpose.entry(1).append().write(initial_management_key_hash);
+            self.Identity_keys_by_purpose.entry(1).push(initial_management_key_hash);
             self
                 .emit(
                     ERC734Event::KeyAdded(

@@ -1,6 +1,6 @@
 use core::num::traits::{Pow, Zero};
-use onchain_id_starknet::storage::storage::StorageArrayFelt252;
 use starknet::ContractAddress;
+use starknet::storage::Vec;
 use starknet::storage_access::StorePacking;
 
 /// Struct that holds details about key.
@@ -65,7 +65,7 @@ pub struct Execution {
     /// The entry point selector in the called contract.
     pub selector: felt252,
     /// The calldata to pass to entry point.
-    pub calldata: StorageArrayFelt252,
+    pub calldata: Vec<felt252>,
     /// Bitmap that holds execution request status. index 0 is approved, index 1 is rejected, index
     /// 2 is executed.
     pub execution_request_status: u128,
@@ -88,7 +88,7 @@ pub struct Claim {
     pub issuer: ContractAddress,
     /// Signature which is the proof that the claim issuer issued a claim of topic for this
     /// identity. it MUST be a signed message of the following structure: TODO: Define the SNIP12
-    pub signature: StorageArrayFelt252,
+    pub signature: Vec<felt252>,
     /// The hash of the claim data, sitting in another location, a bit-mask, call data, or actual
     /// data based on the claim scheme.
     pub data: ByteArray,

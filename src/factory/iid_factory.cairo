@@ -22,7 +22,7 @@ pub trait IIdFactory<TContractState> {
     fn add_token_factory(ref self: TContractState, factory: ContractAddress);
     fn remove_token_factory(ref self: TContractState, factory: ContractAddress);
     fn get_identity(self: @TContractState, wallet: ContractAddress) -> ContractAddress;
-    fn get_wallets(self: @TContractState, identity: ContractAddress) -> Array<ContractAddress>;
+    fn get_wallets(self: @TContractState, identity: ContractAddress) -> Span<ContractAddress>;
     fn get_token(self: @TContractState, identity: ContractAddress) -> ContractAddress;
     fn is_token_factory(self: @TContractState, factory: ContractAddress) -> bool;
     fn is_salt_taken(self: @TContractState, salt: felt252) -> bool;

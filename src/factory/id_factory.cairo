@@ -7,14 +7,11 @@ pub mod IdFactory {
     use onchain_id_starknet::interface::iimplementation_authority::{
         IImplementationAuthorityDispatcher, IImplementationAuthorityDispatcherTrait,
     };
-    use onchain_id_starknet::storage::storage::{
-        ContractAddressVecToContractAddressArray, MutableStorageArrayContractAddressIndexView,
-        MutableStorageArrayTrait, StorageArrayContractAddress, StorageArrayContractAddressIndexView,
-    };
     use openzeppelin_access::ownable::ownable::OwnableComponent;
     use starknet::ContractAddress;
     use starknet::storage::{
-        Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
+        Map, MutableVecTrait, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
+        Vec, VecTrait,
     };
 
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
@@ -29,7 +26,7 @@ pub mod IdFactory {
         implementation_authority: ContractAddress,
         salt_taken: Map<felt252, bool>,
         user_identity: Map<ContractAddress, ContractAddress>,
-        wallets: Map<ContractAddress, StorageArrayContractAddress>,
+        wallets: Map<ContractAddress, Vec<ContractAddress>>,
         token_identity: Map<ContractAddress, ContractAddress>,
         token_address: Map<ContractAddress, ContractAddress>,
         #[substorage(v0)]
@@ -199,7 +196,7 @@ pub mod IdFactory {
                 .deploy_identity(oid_salt, self.implementation_authority.read(), wallet);
             salt_taken_storage_path.write(true);
             user_identity_storage_path.write(identity);
-            self.wallets.entry(identity).append().write(wallet);
+            self.wallets.entry(identity).push(wallet);
             self.emit(WalletLinked { wallet, identity });
             identity
         }
@@ -267,7 +264,7 @@ pub mod IdFactory {
                 );
             salt_taken_storage_path.write(true);
             user_identity_storage_path.write(identity);
-            self.wallets.entry(identity).append().write(wallet);
+            self.wallets.entry(identity).push(wallet);
             self.emit(WalletLinked { wallet, identity });
             identity
         }
@@ -321,7 +318,7 @@ pub mod IdFactory {
             salt_taken_storage_path.write(true);
             token_identity_storage_path.write(identity);
             self.token_address.entry(identity).write(token);
-            self.wallets.entry(identity).append().write(token);
+            self.wallets.entry(identity).push(token);
             self.emit(TokenLinked { token, identity });
             identity
         }
@@ -362,7 +359,7 @@ pub mod IdFactory {
                 Errors::MAX_WALLET_PER_IDENTITY,
             );
             new_wallet_user_identity_storage_path.write(caller_user_identity);
-            caller_user_identity_wallets_storage_path.append().write(new_wallet);
+            caller_user_identity_wallets_storage_path.push(new_wallet);
             self.emit(WalletLinked { wallet: new_wallet, identity: caller_user_identity });
         }
 
@@ -390,9 +387,15 @@ pub mod IdFactory {
 
             old_wallet_user_identity_storage_path.write(Zero::zero());
             let wallets_storage_path = self.wallets.entry(old_wallet_user_identity);
-            for wallet_index in 0..wallets_storage_path.len() {
+            let wallets_len = wallets_storage_path.len();
+            for wallet_index in 0..wallets_len {
                 if wallets_storage_path[wallet_index].read() == old_wallet {
-                    wallets_storage_path.delete(wallet_index);
+                    if wallet_index != wallets_len - 1 {
+                        let last_element = wallets_storage_path.pop().unwrap();
+                        wallets_storage_path[wallet_index].write(last_element);
+                    } else {
+                        wallets_storage_path.pop().unwrap();
+                    }
                     break;
                 }
             }
@@ -427,9 +430,13 @@ pub mod IdFactory {
         /// # Returns
         ///
         /// A `Array<ContractAddress>` - representing the addresses linked to given identity.
-        fn get_wallets(self: @ContractState, identity: ContractAddress) -> Array<ContractAddress> {
-            let wallet_storage_path = self.wallets.entry(identity);
-            wallet_storage_path.into()
+        fn get_wallets(self: @ContractState, identity: ContractAddress) -> Span<ContractAddress> {
+            let mut wallets = array![];
+            let wallets_storage_path = self.wallets.entry(identity);
+            for i in 0..wallets_storage_path.len() {
+                wallets.append(wallets_storage_path[i].read());
+            }
+            wallets.span()
         }
 
         /// Returns token address linked to given identity
