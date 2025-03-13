@@ -311,10 +311,11 @@ pub mod link_unlink_wallet {
 
             let wallets = setup.identity_factory.get_wallets(setup.alice_identity.contract_address);
             assert!(
-                wallets == array![
+                wallets == [
                     setup.accounts.alice_account.contract_address,
                     setup.accounts.david_account.contract_address,
-                ],
+                ]
+                    .span(),
                 "key not linked",
             );
         }
@@ -380,10 +381,11 @@ pub mod link_unlink_wallet {
                 .identity_factory
                 .get_wallets(setup.alice_identity.contract_address);
             assert!(
-                wallets_mid == array![
+                wallets_mid == [
                     setup.accounts.alice_account.contract_address,
                     setup.accounts.david_account.contract_address,
-                ],
+                ]
+                    .span(),
                 "key not linked",
             );
             setup.identity_factory.unlink_wallet(setup.accounts.david_account.contract_address);
@@ -407,7 +409,7 @@ pub mod link_unlink_wallet {
                 .identity_factory
                 .get_wallets(setup.alice_identity.contract_address);
             assert!(
-                wallets_after == array![setup.accounts.alice_account.contract_address],
+                wallets_after == [setup.accounts.alice_account.contract_address].span(),
                 "key not unlinked",
             );
         }
