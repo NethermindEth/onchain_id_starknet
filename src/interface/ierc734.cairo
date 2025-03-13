@@ -74,13 +74,13 @@ pub struct KeyRemoved {
 #[starknet::interface]
 pub trait IERC734<TContractState> {
     fn add_key(ref self: TContractState, key: felt252, purpose: felt252, key_type: felt252) -> bool;
-    fn approve(ref self: TContractState, execution_id: felt252, approve: bool) -> bool;
     fn remove_key(ref self: TContractState, key: felt252, purpose: felt252) -> bool;
+    fn approve(ref self: TContractState, execution_id: felt252, approve: bool) -> bool;
     fn execute(
         ref self: TContractState, to: ContractAddress, selector: felt252, calldata: Span<felt252>,
     ) -> felt252;
+    fn key_has_purpose(self: @TContractState, key: felt252, purpose: felt252) -> bool;
     fn get_key(self: @TContractState, key: felt252) -> (Span<felt252>, felt252, felt252);
     fn get_key_purposes(self: @TContractState, key: felt252) -> Span<felt252>;
     fn get_keys_by_purpose(self: @TContractState, purpose: felt252) -> Span<felt252>;
-    fn key_has_purpose(self: @TContractState, key: felt252, purpose: felt252) -> bool;
 }

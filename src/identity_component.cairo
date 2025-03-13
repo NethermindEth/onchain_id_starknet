@@ -14,9 +14,11 @@ pub mod IdentityComponent {
     use onchain_id_starknet::storage::storage::{
         Felt252VecToFelt252Array, MutableFelt252VecToFelt252Array,
         MutableStorageArrayFelt252IndexView, MutableStorageArrayTrait, StorageArrayFelt252,
-        StorageArrayFelt252IndexView, StorageArrayTrait,
+        StorageArrayFelt252IndexView,
     };
-    use onchain_id_starknet::storage::structs::{Claim, Execution, Key, delete_claim, delete_key};
+    use onchain_id_starknet::storage::structs::{
+        BitmapTrait, Claim, Execution, KeyDetails, get_all_purposes,
+    };
     use onchain_id_starknet::version::version::VersionComponent;
     use openzeppelin_upgrades::upgradeable::UpgradeableComponent;
     use starknet::ContractAddress;
@@ -28,7 +30,7 @@ pub mod IdentityComponent {
     #[storage]
     pub struct Storage {
         Identity_execution_nonce: felt252,
-        Identity_keys: Map<felt252, Key>,
+        Identity_keys: Map<felt252, KeyDetails>,
         Identity_keys_by_purpose: Map<felt252, StorageArrayFelt252>,
         Identity_executions: Map<felt252, Execution>,
         Identity_claims: Map<felt252, Claim>,
@@ -56,6 +58,7 @@ pub mod IdentityComponent {
         pub const NON_EXISTING_EXECUTION: felt252 = 'Non-existing execution';
         pub const ZERO_ADDRESS: felt252 = 'Zero address';
         pub const NOT_HAVE_CLAIM_KEY: felt252 = 'Sender not have claim key';
+        pub const EXECUTION_REJECTED: felt252 = 'Request has been rejected';
     }
 
     #[embeddable_as(IdentityImpl)]
@@ -98,7 +101,6 @@ pub mod IdentityComponent {
         /// # Arguments
         ///
         /// * `key` - A `felt252` representing hash of the key(public key, ContractAddress).
-        /// TODO: deciding using `MANAGEMENT` etc... as purpose since it is felt252
         /// * `purpose` A `felt252` representing the purpose of key. For example 1 : MANAGEMENT, 2 :
         /// ACTION, 3: CLAIM.
         /// * `key_type` TODO: To Be Defined!
@@ -118,20 +120,18 @@ pub mod IdentityComponent {
             key_type: felt252,
         ) -> bool {
             self.only_manager();
-            let mut key_storage_path = self.Identity_keys.entry(key);
-            if key_storage_path.key.read() == key {
-                let purposes_storage_path = key_storage_path.purposes.deref();
-                for i in 0..purposes_storage_path.len() {
-                    assert(
-                        purpose != purposes_storage_path[i].read(), Errors::KEY_ALREADY_HAS_PURPOSE,
-                    );
-                }
-                purposes_storage_path.append().write(purpose);
-            } else {
-                key_storage_path.key.write(key);
-                key_storage_path.key_type.write(key_type);
-                key_storage_path.purposes.deref().append().write(purpose);
-            }
+            let key_storage_path = self.Identity_keys.entry(key);
+            let mut key_details = key_storage_path.read();
+            let purpose_bit_index = purpose.try_into().expect('Invalid Purpose');
+            assert(purpose_bit_index < 128, 'Purpose is not in valid range');
+            assert(
+                !BitmapTrait::get(key_details.purposes, purpose_bit_index),
+                Errors::KEY_ALREADY_HAS_PURPOSE,
+            );
+            key_details.purposes = BitmapTrait::set(key_details.purposes, purpose_bit_index);
+            key_details.key_type = key_type.try_into().expect('Invalid Key Type');
+            key_storage_path.write(key_details);
+
             self.Identity_keys_by_purpose.entry(purpose).append().write(key);
             self.emit(ERC734Event::KeyAdded(ierc734::KeyAdded { key, purpose, key_type }));
             true
@@ -142,7 +142,6 @@ pub mod IdentityComponent {
         /// # Arguments
         ///
         /// * `key` - A `felt252` representing hash of the key(public key, ContractAddress).
-        /// TODO: deciding using `MANAGEMENT` etc... as purpose since it is felt252
         /// * `purpose` A `felt252` representing the purpose of key. For example 1 : MANAGEMENT, 2 :
         /// ACTION, 3: CLAIM.
         ///
@@ -159,41 +158,31 @@ pub mod IdentityComponent {
         ) -> bool {
             self.only_manager();
             let key_storage_path = self.Identity_keys.entry(key);
-            assert(key_storage_path.key.read() == key, Errors::KEY_NOT_REGISTERED);
+            let mut key_details = key_storage_path.read();
+            assert(key_details.purposes.is_non_zero(), Errors::KEY_NOT_REGISTERED);
+            let purpose_bit_index: usize = purpose.try_into().expect('Invalid Purpose');
+            assert(purpose_bit_index < 128, 'Purpose is not in valid range');
+            assert(
+                BitmapTrait::get(key_details.purposes, purpose_bit_index),
+                Errors::KEY_DOES_NOT_HAVE_PURPOSE,
+            );
 
-            let purposes_storage_path = key_storage_path.purposes.deref();
-            let purpose_size = purposes_storage_path.len();
-            let mut purpose_index = Option::None;
-            for i in 0..purpose_size {
-                if purpose == purposes_storage_path[i].read() {
-                    purpose_index = Option::Some(i);
-                    break;
-                }
+            key_details.purposes = BitmapTrait::unset(key_details.purposes, purpose_bit_index);
+
+            let key_type: felt252 = key_details.key_type.into();
+            if key_details.purposes.is_zero() {
+                key_details.key_type = Zero::zero();
             }
-            assert(purpose_index != Option::None, Errors::KEY_DOES_NOT_HAVE_PURPOSE);
-            purposes_storage_path.delete(purpose_index.unwrap());
+
+            key_storage_path.write(key_details);
 
             let keys_by_purpose_key_storage_path = self.Identity_keys_by_purpose.entry(purpose);
-            let mut keys_len = keys_by_purpose_key_storage_path.len();
-            // MOTE: this loops assumes that whenever key is added to keys mapping it
-            // keys_by_purpose mapping is also updated thus no need to check for
-            // purpose exist for key or not if this invariant holds check for
-            // removal above should guarantee purpose exist for key
-            let mut key_index = 0;
-            for i in 0..keys_len {
+
+            for i in 0..keys_by_purpose_key_storage_path.len() {
                 if keys_by_purpose_key_storage_path[i].read() == key {
-                    key_index = i;
+                    keys_by_purpose_key_storage_path.delete(i);
                     break;
                 }
-            }
-            keys_by_purpose_key_storage_path.delete(key_index);
-            let key_type = key_storage_path.key_type.read();
-
-            /// if (_purposes.length - 1 == 0) {
-            ///     delete _keys[_key];
-            ///}
-            if purposes_storage_path.len().is_zero() {
-                delete_key(key_storage_path);
             }
 
             self.emit(ERC734Event::KeyRemoved(ierc734::KeyRemoved { key, purpose, key_type }));
@@ -222,7 +211,13 @@ pub mod IdentityComponent {
                 Errors::NON_EXISTING_EXECUTION,
             );
             let execution_storage_path = self.Identity_executions.entry(execution_id);
-            assert(!execution_storage_path.executed.read(), Errors::ALREADY_EXECUTED);
+            let mut execution_request_status_bitmap = execution_storage_path
+                .execution_request_status
+                .read();
+            assert(!BitmapTrait::get(execution_request_status_bitmap, 2), Errors::ALREADY_EXECUTED);
+            assert(
+                !BitmapTrait::get(execution_request_status_bitmap, 1), Errors::EXECUTION_REJECTED,
+            );
             let caller_hash = poseidon_hash_span(
                 array![starknet::get_caller_address().into()].span(),
             );
@@ -234,18 +229,22 @@ pub mod IdentityComponent {
             }
             self.emit(ERC734Event::Approved(ierc734::Approved { execution_id, approved: approve }));
             if !approve {
+                execution_storage_path
+                    .execution_request_status
+                    .write(BitmapTrait::set(execution_request_status_bitmap, 1));
                 return false;
             }
-            execution_storage_path.approved.write(true);
+
+            execution_request_status_bitmap = BitmapTrait::set(execution_request_status_bitmap, 0);
             let selector = execution_storage_path.selector.read();
             let calldata: Span<felt252> = Into::<
                 StoragePath<Mutable<StorageArrayFelt252>>, Array<felt252>,
             >::into(execution_storage_path.calldata.deref())
                 .span();
 
-            match starknet::syscalls::call_contract_syscall(to_address, selector, calldata) {
+            let execution_result =
+                match starknet::syscalls::call_contract_syscall(to_address, selector, calldata) {
                 Result::Ok => {
-                    execution_storage_path.executed.write(true);
                     self
                         .emit(
                             ERC734Event::Executed(
@@ -267,7 +266,15 @@ pub mod IdentityComponent {
                         );
                     false
                 },
+            };
+
+            if execution_result {
+                execution_request_status_bitmap =
+                    BitmapTrait::set(execution_request_status_bitmap, 2);
             }
+            execution_storage_path.execution_request_status.write(execution_request_status_bitmap);
+
+            execution_result
         }
 
         fn execute(
@@ -277,6 +284,8 @@ pub mod IdentityComponent {
             calldata: Span<felt252>,
         ) -> felt252 {
             let execution_nonce = self.Identity_execution_nonce.read();
+            self.Identity_execution_nonce.write(execution_nonce + 1);
+
             let execution_storage_path = self.Identity_executions.entry(execution_nonce);
             execution_storage_path.to.write(to);
             execution_storage_path.selector.write(selector);
@@ -284,8 +293,6 @@ pub mod IdentityComponent {
             for chunk in calldata.clone() {
                 calldata_storage_path.append().write(*chunk);
             }
-
-            self.Identity_execution_nonce.write(execution_nonce + 1);
 
             self
                 .emit(
@@ -323,9 +330,11 @@ pub mod IdentityComponent {
         fn get_key(
             self: @ComponentState<TContractState>, key: felt252,
         ) -> (Span<felt252>, felt252, felt252) {
-            let key_storage_path = self.Identity_keys.entry(key);
-            let purposes: Array<felt252> = key_storage_path.purposes.deref().into();
-            (purposes.span(), key_storage_path.key_type.read(), key_storage_path.key.read())
+            let key_details = self.Identity_keys.entry(key).read();
+            if key_details.purposes.is_zero() {
+                return ([].span(), Zero::zero(), Zero::zero());
+            }
+            (get_all_purposes(key_details.purposes).span(), key_details.key_type.into(), key)
         }
 
         /// Returns the purposes given key has.
@@ -338,10 +347,8 @@ pub mod IdentityComponent {
         ///
         /// A `Span<felt252>` representing the array of purposes given key has.
         fn get_key_purposes(self: @ComponentState<TContractState>, key: felt252) -> Span<felt252> {
-            Into::<
-                StoragePath<StorageArrayFelt252>, Array<felt252>,
-            >::into(self.Identity_keys.entry(key).purposes.deref())
-                .span()
+            let purposes = self.Identity_keys.entry(key).read().purposes;
+            get_all_purposes(purposes).span()
         }
 
         /// Returns the keys which has given purpose.
@@ -375,20 +382,8 @@ pub mod IdentityComponent {
         fn key_has_purpose(
             self: @ComponentState<TContractState>, key: felt252, purpose: felt252,
         ) -> bool {
-            let key_storage_path = self.Identity_keys.entry(key);
-            if key_storage_path.key.read().is_zero() {
-                return false;
-            }
-            let purposes_storage_path = key_storage_path.purposes.deref();
-            let mut has_purpose = false;
-            for i in 0..purposes_storage_path.len() {
-                let _purpose = purposes_storage_path[i].read();
-                if _purpose == 1 || purpose == _purpose {
-                    has_purpose = true;
-                    break;
-                }
-            }
-            has_purpose
+            let purposes = self.Identity_keys.entry(key).read().purposes;
+            BitmapTrait::get(purposes, 1) || BitmapTrait::get(purposes, purpose.try_into().unwrap())
         }
     }
 
@@ -420,20 +415,19 @@ pub mod IdentityComponent {
             let claim_id = poseidon_hash_span(claim_data_serialized.span());
 
             let claim_storage_path = self.Identity_claims.entry(claim_id);
-            claim_storage_path.topic.write(topic);
+
             claim_storage_path.scheme.write(scheme);
-
-            let signature_storage = claim_storage_path.signature.deref();
-            for chunk in signature {
-                signature_storage.append().write(*chunk);
-            }
-
             claim_storage_path.data.write(data.clone());
             claim_storage_path.uri.write(uri.clone());
 
             if claim_storage_path.issuer.read() != issuer {
+                let signature_storage = claim_storage_path.signature.deref();
+                for chunk in signature {
+                    signature_storage.append().write(*chunk);
+                }
                 self.Identity_claims_by_topic.entry(topic).append().write(claim_id);
                 claim_storage_path.issuer.write(issuer);
+                claim_storage_path.topic.write(topic);
                 self
                     .emit(
                         ERC735Event::ClaimAdded(
@@ -443,6 +437,11 @@ pub mod IdentityComponent {
                         ),
                     );
             } else {
+                let signature_storage = claim_storage_path.signature.deref();
+                signature_storage.clear();
+                for chunk in signature {
+                    signature_storage.append().write(*chunk);
+                }
                 self
                     .emit(
                         ERC735Event::ClaimChanged(
@@ -462,9 +461,8 @@ pub mod IdentityComponent {
             let topic = claim_storage_path.topic.read();
             assert(topic.is_non_zero(), Errors::CLAIM_DOES_NOT_EXIST);
             let claims_by_topic_storage_path = self.Identity_claims_by_topic.entry(topic);
-            let mut claim_index = Option::None; // TODO: Might turn into Option<index>
-            let claims_len = claims_by_topic_storage_path.len();
-            for i in 0..claims_len {
+            let mut claim_index = Option::None;
+            for i in 0..claims_by_topic_storage_path.len() {
                 if claims_by_topic_storage_path[i].read() == claim_id {
                     claim_index = Option::Some(i);
                     break;
@@ -493,7 +491,14 @@ pub mod IdentityComponent {
                         },
                     ),
                 );
-            delete_claim(claim_storage_path);
+
+            /// Delete claim data
+            claim_storage_path.topic.write(Default::default());
+            claim_storage_path.scheme.write(Default::default());
+            claim_storage_path.issuer.write(Zero::zero());
+            claim_storage_path.signature.clear();
+            claim_storage_path.data.write(Default::default());
+            claim_storage_path.uri.write(Default::default());
             true
         }
 
@@ -657,10 +662,10 @@ pub mod IdentityComponent {
             let initial_management_key_hash = poseidon_hash_span(
                 array![initial_management_key.into()].span(),
             );
-            let key_storage_path = self.Identity_keys.entry(initial_management_key_hash);
-            key_storage_path.key.write(initial_management_key_hash);
-            key_storage_path.key_type.write(1);
-            key_storage_path.purposes.deref().append().write(1);
+            self
+                .Identity_keys
+                .entry(initial_management_key_hash)
+                .write(KeyDetails { purposes: 2, key_type: 1 });
 
             self.Identity_keys_by_purpose.entry(1).append().write(initial_management_key_hash);
             self
@@ -699,14 +704,10 @@ pub mod IdentityComponent {
             data: Span<felt252>,
         ) -> bool {
             self.emit(ERC734Event::Approved(ierc734::Approved { execution_id, approved: true }));
-            let execution_storage_path = self.Identity_executions.entry(execution_id);
-            execution_storage_path.approved.write(true);
-            // see
-            // {https://book.cairo-lang.org/appendix-08-system-calls.html?highlight=call_con#call_contract}
-            // TODO: remove failing path since we caannot handle gracefully
-            match starknet::syscalls::call_contract_syscall(to, selector, data) {
+
+            let execution_result =
+                match starknet::syscalls::call_contract_syscall(to, selector, data) {
                 Result::Ok => {
-                    execution_storage_path.executed.write(true);
                     self
                         .emit(
                             ERC734Event::Executed(
@@ -724,7 +725,19 @@ pub mod IdentityComponent {
                         );
                     false
                 },
+            };
+
+            let mut execution_request_status_bitmap = BitmapTrait::set(Zero::zero(), 0);
+            if execution_result {
+                execution_request_status_bitmap =
+                    BitmapTrait::set(execution_request_status_bitmap, 2);
             }
+            self
+                .Identity_executions
+                .entry(execution_id)
+                .execution_request_status
+                .write(execution_request_status_bitmap);
+            execution_result
         }
     }
 }
