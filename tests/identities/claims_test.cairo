@@ -644,22 +644,14 @@ pub mod remove_claim {
         // Remove claim
         stop_cheat_caller_address(setup.alice_identity.contract_address);
 
-        let (topic, scheme, issuer, _, data, uri) = setup
+        let (topic, scheme, issuer, signature, data, uri) = setup
             .alice_identity
             .get_claim(test_claim.claim_id);
 
         assert!(topic == Zero::zero(), "Stored claim topic not cleaned");
         assert!(scheme == Zero::zero(), "Stored scheme not cleaned");
         assert!(issuer == Zero::zero(), "Stored issuer not cleaned");
-        // TODO: Clear signature from storage
-        //if let Signature::StarkSignature(stored_sig) = signature {
-        //        assert!(
-        //            stored_sig.r == Zero::zero()
-        //                && stored_sig.s == Zero::zero()
-        //                && stored_sig.public_key == Zero::zero(),
-        //            "Stored signature not cleaned"
-        //        );
-        //}
+        assert!(signature == [].span(), "Signature not cleaned");
         assert!(data == Default::default(), "Stored data not cleaned");
         assert!(uri == Default::default(), "Stored uri not cleaned");
 
@@ -784,21 +776,13 @@ pub mod get_claim {
     #[test]
     fn test_should_return_default_values_when_claim_does_not_exist() {
         let setup = setup_identity();
-        let (topic, scheme, issuer, mut signature, data, uri) = setup
+        let (topic, scheme, issuer, signature, data, uri) = setup
             .alice_identity
             .get_claim('non_existing_claim');
         assert!(topic == Zero::zero());
         assert!(scheme == Zero::zero());
         assert!(issuer == Zero::zero());
-        if let Signature::StarkSignature(stored_sig) =
-            Serde::<Signature>::deserialize(ref signature)
-            .unwrap() {
-            assert!(
-                stored_sig.r == Zero::zero()
-                    && stored_sig.s == Zero::zero()
-                    && stored_sig.public_key == Zero::zero(),
-            );
-        }
+        assert!(signature == [].span());
         assert!(data == Default::default());
         assert!(uri == Default::default());
     }

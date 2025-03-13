@@ -1,7 +1,7 @@
-use core::num::traits::{Zero, Pow};
+use core::num::traits::{Pow, Zero};
 use onchain_id_starknet::storage::storage::StorageArrayFelt252;
-use starknet::storage_access::StorePacking;
 use starknet::ContractAddress;
+use starknet::storage_access::StorePacking;
 
 /// Struct that holds details about key.
 #[derive(Drop, Copy)]
