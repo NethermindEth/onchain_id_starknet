@@ -4,11 +4,11 @@ pub mod ClaimIssuer {
     use starknet::storage::{
         Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
     };
+    use crate::version::version;
     use crate::identity::component::IdentityComponent;
     use crate::identity::interface::ierc735::{IERC735Dispatcher, IERC735DispatcherTrait};
     use crate::identity::interface::iidentity::IIdentity;
     use crate::claim_issuer::interface::IClaimIssuer;
-    use crate::version::version::VersionComponent;
 
     component!(path: IdentityComponent, storage: identity, event: IdentityEvent);
 
@@ -18,18 +18,14 @@ pub mod ClaimIssuer {
     impl ERC735Impl = IdentityComponent::ERC735Impl<ContractState>;
     impl IdentityInternalImpl = IdentityComponent::InternalImpl<ContractState>;
 
-    component!(path: VersionComponent, storage: version, event: VersionEvent);
-
     #[abi(embed_v0)]
-    impl VersionImpl = VersionComponent::VersionImpl<ContractState>;
+    impl VersionImpl = version::VersionImpl<ContractState>;
 
     #[storage]
     struct Storage {
         revoked_claims: Map<felt252, bool>,
         #[substorage(v0)]
         identity: IdentityComponent::Storage,
-        #[substorage(v0)]
-        version: VersionComponent::Storage,
     }
 
     #[event]
@@ -38,8 +34,6 @@ pub mod ClaimIssuer {
         ClaimRevoked: ClaimRevoked,
         #[flat]
         IdentityEvent: IdentityComponent::Event,
-        #[flat]
-        VersionEvent: VersionComponent::Event,
     }
 
     #[derive(Drop, starknet::Event)]

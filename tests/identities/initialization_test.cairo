@@ -1,7 +1,5 @@
 use core::num::traits::Zero;
-use onchain_id_starknet::version::version::{
-    IVersionDispatcher, IVersionDispatcherTrait, VersionComponent,
-};
+use onchain_id_starknet::version::version::{IVersionDispatcher, IVersionDispatcherTrait, VERSION};
 use snforge_std::{ContractClassTrait, DeclareResultTrait, declare, mock_call};
 
 #[test]
@@ -41,5 +39,5 @@ fn test_should_return_version_of_the_implementation() {
         .deploy(@array![implementation_authority_address.into(), 'initial_management_key'])
         .unwrap();
     let version = IVersionDispatcher { contract_address: identity_address }.version();
-    assert!(version == VersionComponent::VERSION);
+    assert!(version == VERSION);
 }

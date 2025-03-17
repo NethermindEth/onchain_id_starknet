@@ -1,40 +1,36 @@
 #[starknet::contract]
 mod Identity {
+    use core::num::traits::Zero;
+    use openzeppelin_upgrades::interface::IUpgradeable;
     use openzeppelin_upgrades::upgradeable::UpgradeableComponent;
-    use starknet::ContractAddress;
+    use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
+    use starknet::{ClassHash, ContractAddress};
+    use crate::version::version;
     use crate::identity::component::IdentityComponent;
-    use crate::proxy::version_manager::VersionManagerComponent;
-    use crate::version::version::VersionComponent;
-
-    component!(path: VersionComponent, storage: version, event: VersionEvent);
 
     #[abi(embed_v0)]
-    impl VersionImpl = VersionComponent::VersionImpl<ContractState>;
+    impl VersionImpl = version::VersionImpl<ContractState>;
 
     component!(path: UpgradeableComponent, storage: upgradeable, event: UpgradeableEvent);
 
-    impl UpgradeableImpl = UpgradeableComponent::InternalImpl<ContractState>;
-
-    component!(path: VersionManagerComponent, storage: version_manager, event: VersionManagerEvent);
-
-    #[abi(embed_v0)]
-    impl VersionManagerUpgradeableImpl =
-        VersionManagerComponent::UpgradeableImpl<ContractState>;
-    impl VersionManagerInternalImpl = VersionManagerComponent::InternalImpl<ContractState>;
+    impl UpgradeableInternalImpl = UpgradeableComponent::InternalImpl<ContractState>;
 
     component!(path: IdentityComponent, storage: identity, event: IdentityEvent);
 
     #[abi(embed_v0)]
-    impl IdentityABICentralyUpgradeableImpl =
-        IdentityComponent::IdentityABICentralyUpgradeableImpl<ContractState>;
+    impl IdentityImpl = IdentityComponent::IdentityImpl<ContractState>;
+
+    #[abi(embed_v0)]
+    impl ERC734Impl = IdentityComponent::ERC734Impl<ContractState>;
+
+    #[abi(embed_v0)]
+    impl ERC735Impl = IdentityComponent::ERC735Impl<ContractState>;
+
     impl IdentityInternalImpl = IdentityComponent::InternalImpl<ContractState>;
 
     #[storage]
     struct Storage {
-        #[substorage(v0)]
-        version: VersionComponent::Storage,
-        #[substorage(v0)]
-        version_manager: VersionManagerComponent::Storage,
+        implementation_authority: ContractAddress,
         #[substorage(v0)]
         upgradeable: UpgradeableComponent::Storage,
         #[substorage(v0)]
@@ -45,13 +41,14 @@ mod Identity {
     #[derive(Drop, starknet::Event)]
     enum Event {
         #[flat]
-        VersionEvent: VersionComponent::Event,
-        #[flat]
         IdentityEvent: IdentityComponent::Event,
         #[flat]
-        VersionManagerEvent: VersionManagerComponent::Event,
-        #[flat]
         UpgradeableEvent: UpgradeableComponent::Event,
+    }
+
+    pub mod Errors {
+        pub const IMPLEMENTATION_AUTH_ZERO_ADDRESS: felt252 = 'Impl. Auth. Zero Address';
+        pub const CALLER_NOT_IMPLEMENTATION_AUTHORITY: felt252 = 'Caller is not Impl. Auth.';
     }
 
     #[constructor]
@@ -60,7 +57,29 @@ mod Identity {
         implementation_authority: ContractAddress,
         initial_management_key_hash: ContractAddress,
     ) {
-        self.version_manager.initialize(implementation_authority);
+        assert(implementation_authority.is_non_zero(), Errors::IMPLEMENTATION_AUTH_ZERO_ADDRESS);
+        self.implementation_authority.write(implementation_authority);
         self.identity.initialize(initial_management_key_hash);
+    }
+
+    #[abi(embed_v0)]
+    impl UpgradeableImpl of IUpgradeable<ContractState> {
+        /// Upgrades the implementation used by this contract.
+        ///
+        /// # Arguments
+        ///
+        /// - `new_class_hash` A `ClassHash` representing the implementation to update to.
+        ///
+        /// # Requirements
+        ///
+        /// - This function can only be called by the implementation authority.
+        /// - The `ClassHash` should already have been declared.
+        fn upgrade(ref self: ContractState, new_class_hash: ClassHash) {
+            assert(
+                self.implementation_authority.read() == starknet::get_caller_address(),
+                Errors::CALLER_NOT_IMPLEMENTATION_AUTHORITY,
+            );
+            self.upgradeable.upgrade(new_class_hash);
+        }
     }
 }

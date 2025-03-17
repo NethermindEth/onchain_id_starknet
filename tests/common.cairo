@@ -152,7 +152,7 @@ pub fn setup_factory() -> FactorySetup {
     // Declare Identity Contract
     let identity_contract = declare("Identity").unwrap().contract_class().class_hash;
     // Declare and Deploy ImplementationAuthority
-    let implementation_authority_contract = declare("ImplementationAuthority")
+    let implementation_authority_contract = declare("IdentityImplementationAuthority")
         .unwrap()
         .contract_class();
     let mut implementation_authority_ctor_data: Array<felt252> = array![];
