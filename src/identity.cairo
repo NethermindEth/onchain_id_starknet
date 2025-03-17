@@ -1,10 +1,10 @@
 #[starknet::contract]
 mod Identity {
-    use onchain_id_starknet::identity_component::IdentityComponent;
-    use onchain_id_starknet::proxy::version_manager::VersionManagerComponent;
-    use onchain_id_starknet::version::version::VersionComponent;
     use openzeppelin_upgrades::upgradeable::UpgradeableComponent;
     use starknet::ContractAddress;
+    use crate::identity_component::IdentityComponent;
+    use crate::proxy::version_manager::VersionManagerComponent;
+    use crate::version::version::VersionComponent;
 
     component!(path: VersionComponent, storage: version, event: VersionEvent);
 

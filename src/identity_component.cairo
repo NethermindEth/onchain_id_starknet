@@ -2,25 +2,23 @@
 pub mod IdentityComponent {
     use core::num::traits::Zero;
     use core::poseidon::poseidon_hash_span;
-    use onchain_id_starknet::interface::ierc734::{ERC734Event, IERC734};
-    use onchain_id_starknet::interface::ierc735::{ERC735Event, IERC735};
-    use onchain_id_starknet::interface::iidentity::{
-        IIdentity, IIdentityDispatcher, IIdentityDispatcherTrait, IdentityABI,
-    };
-    use onchain_id_starknet::interface::{ierc734, ierc735};
-    use onchain_id_starknet::proxy::version_manager::VersionManagerComponent;
-    use onchain_id_starknet::proxy::version_manager::VersionManagerComponent::InternalTrait as VersionManagerInternalTrait;
-    use onchain_id_starknet::storage::signature::{get_public_key_hash, is_valid_signature};
-    use onchain_id_starknet::storage::structs::{
-        BitmapTrait, Claim, Execution, KeyDetails, get_all_purposes,
-    };
-    use onchain_id_starknet::version::version::VersionComponent;
     use openzeppelin_upgrades::upgradeable::UpgradeableComponent;
     use starknet::ContractAddress;
     use starknet::storage::{
         IntoIterRange, Map, MutableVecTrait, StoragePathEntry, StoragePointerReadAccess,
         StoragePointerWriteAccess, Vec,
     };
+    use crate::interface::ierc734::{ERC734Event, IERC734};
+    use crate::interface::ierc735::{ERC735Event, IERC735};
+    use crate::interface::iidentity::{
+        IIdentity, IIdentityDispatcher, IIdentityDispatcherTrait, IdentityABI,
+    };
+    use crate::interface::{ierc734, ierc735};
+    use crate::proxy::version_manager::VersionManagerComponent::InternalTrait as VersionManagerInternalTrait;
+    use crate::proxy::version_manager::VersionManagerComponent;
+    use crate::storage::signature::{get_public_key_hash, is_valid_signature};
+    use crate::storage::structs::{BitmapTrait, Claim, Execution, KeyDetails, get_all_purposes};
+    use crate::version::version::VersionComponent;
 
     #[storage]
     pub struct Storage {

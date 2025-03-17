@@ -2,17 +2,17 @@
 pub mod VerifierComponent {
     use core::num::traits::Zero;
     use core::poseidon::poseidon_hash_span;
-    use onchain_id_starknet::interface::ierc735::{IERC735Dispatcher, IERC735DispatcherTrait};
-    use onchain_id_starknet::interface::iidentity::{IIdentityDispatcher, IIdentityDispatcherTrait};
-    use onchain_id_starknet::interface::iverifier::{
-        IClaimTopicsRegistry, ITrustedIssuersRegistry, IVerifier, VerifierABI,
-    };
     use openzeppelin_access::ownable::ownable::OwnableComponent;
     use openzeppelin_access::ownable::ownable::OwnableComponent::InternalTrait as OwnableInternalTrait;
     use starknet::ContractAddress;
     use starknet::storage::{
         IntoIterRange, Map, MutableVecTrait, StorageAsPath, StoragePathEntry,
         StoragePointerReadAccess, StoragePointerWriteAccess, Vec, VecTrait,
+    };
+    use crate::interface::ierc735::{IERC735Dispatcher, IERC735DispatcherTrait};
+    use crate::interface::iidentity::{IIdentityDispatcher, IIdentityDispatcherTrait};
+    use crate::interface::iverifier::{
+        IClaimTopicsRegistry, ITrustedIssuersRegistry, IVerifier, VerifierABI,
     };
 
     #[storage]

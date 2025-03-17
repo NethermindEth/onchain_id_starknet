@@ -1,14 +1,14 @@
 #[starknet::contract]
 pub mod ClaimIssuer {
-    use onchain_id_starknet::identity_component::IdentityComponent;
-    use onchain_id_starknet::interface::iclaim_issuer::IClaimIssuer;
-    use onchain_id_starknet::interface::ierc735::{IERC735Dispatcher, IERC735DispatcherTrait};
-    use onchain_id_starknet::interface::iidentity::IIdentity;
-    use onchain_id_starknet::version::version::VersionComponent;
     use starknet::ContractAddress;
     use starknet::storage::{
         Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
     };
+    use crate::identity_component::IdentityComponent;
+    use crate::interface::iclaim_issuer::IClaimIssuer;
+    use crate::interface::ierc735::{IERC735Dispatcher, IERC735DispatcherTrait};
+    use crate::interface::iidentity::IIdentity;
+    use crate::version::version::VersionComponent;
 
     component!(path: IdentityComponent, storage: identity, event: IdentityEvent);
 

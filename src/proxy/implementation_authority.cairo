@@ -3,10 +3,10 @@
 #[starknet::contract]
 pub mod ImplementationAuthority {
     use core::num::traits::Zero;
-    use onchain_id_starknet::interface::iimplementation_authority::IImplementationAuthority;
     use openzeppelin_access::ownable::ownable::OwnableComponent;
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
     use starknet::{ClassHash, ContractAddress};
+    use crate::interface::iimplementation_authority::IImplementationAuthority;
 
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
 
