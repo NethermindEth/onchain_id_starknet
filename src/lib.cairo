@@ -8,6 +8,7 @@ pub mod factory {
 
 pub mod gateway {
     pub mod gateway;
+    pub mod interface;
 }
 
 pub mod interface {
