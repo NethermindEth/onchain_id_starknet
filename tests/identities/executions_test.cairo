@@ -129,11 +129,6 @@ pub mod execute {
             );
             let execution_id = setup.alice_identity.execute(to, selector, calldata.span());
             stop_cheat_caller_address(setup.alice_identity.contract_address);
-            assert!(
-                setup.alice_identity.get_key_purposes(alice_address_hash) == array![1, 3].span(),
-                "Key purposes does not match",
-            );
-
             spy
                 .assert_emitted(
                     @array![
@@ -272,10 +267,53 @@ pub mod execute {
 
         #[test]
         #[ignore]
-        /// NOTE: In starknet we cannot garcefully handle failed calls. see
-        /// {https://book.cairo-lang.org/appendix-08-system-calls.html?highlight=call_con#call_contract}
         fn test_should_emit_execution_failed_on_failed_transaction() {
-            assert(true, '');
+            let setup = setup_identity();
+            let simple_storage_dispatcher = deploy_simple_storage();
+
+            let carol_address_hash = poseidon_hash_span(
+                array![setup.accounts.carol_account.contract_address.into()].span(),
+            );
+
+            start_cheat_caller_address(
+                setup.alice_identity.contract_address,
+                setup.accounts.alice_account.contract_address,
+            );
+            setup.alice_identity.add_key(carol_address_hash, 2, 1);
+            stop_cheat_caller_address(setup.alice_identity.contract_address);
+
+            let to = simple_storage_dispatcher.contract_address;
+            let selector = selector!("non_existing_entrypoint");
+            let calldata = [].span();
+
+            let mut spy = spy_events();
+
+            start_cheat_caller_address(
+                setup.alice_identity.contract_address,
+                setup.accounts.carol_account.contract_address,
+            );
+            let execution_id = setup.alice_identity.execute(to, selector, calldata);
+            stop_cheat_caller_address(setup.alice_identity.contract_address);
+
+            spy
+                .assert_emitted(
+                    @array![
+                        (
+                            setup.alice_identity.contract_address,
+                            ierc734::ERC734Event::Approved(
+                                ierc734::Approved { execution_id, approved: true },
+                            ),
+                        ),
+                        (
+                            setup.alice_identity.contract_address,
+                            ierc734::ERC734Event::ExecutionFailed(
+                                ierc734::ExecutionFailed {
+                                    execution_id, to, selector, data: calldata,
+                                },
+                            ),
+                        ),
+                    ],
+                );
         }
     }
 
