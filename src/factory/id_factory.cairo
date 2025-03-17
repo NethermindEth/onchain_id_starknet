@@ -10,8 +10,8 @@ pub mod IdFactory {
     use openzeppelin_access::ownable::ownable::OwnableComponent;
     use starknet::ContractAddress;
     use starknet::storage::{
-        Map, MutableVecTrait, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
-        Vec, VecTrait,
+        IntoIterRange, Map, MutableVecTrait, StoragePathEntry, StoragePointerReadAccess,
+        StoragePointerWriteAccess, Vec,
     };
 
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
@@ -431,12 +431,13 @@ pub mod IdFactory {
         ///
         /// A `Array<ContractAddress>` - representing the addresses linked to given identity.
         fn get_wallets(self: @ContractState, identity: ContractAddress) -> Span<ContractAddress> {
-            let mut wallets = array![];
-            let wallets_storage_path = self.wallets.entry(identity);
-            for i in 0..wallets_storage_path.len() {
-                wallets.append(wallets_storage_path[i].read());
-            }
-            wallets.span()
+            self
+                .wallets
+                .entry(identity)
+                .into_iter_full_range()
+                .map(|x| x.read())
+                .collect::<Array<ContractAddress>>()
+                .span()
         }
 
         /// Returns token address linked to given identity
