@@ -11,8 +11,8 @@ pub mod VerifierComponent {
     use openzeppelin_access::ownable::ownable::OwnableComponent::InternalTrait as OwnableInternalTrait;
     use starknet::ContractAddress;
     use starknet::storage::{
-        Map, MutableVecTrait, StorageAsPath, StoragePathEntry, StoragePointerReadAccess,
-        StoragePointerWriteAccess, Vec, VecTrait,
+        IntoIterRange, Map, MutableVecTrait, StorageAsPath, StoragePathEntry,
+        StoragePointerReadAccess, StoragePointerWriteAccess, Vec, VecTrait,
     };
 
     #[storage]
@@ -173,19 +173,15 @@ pub mod VerifierComponent {
         fn add_claim_topic(ref self: ComponentState<TContractState>, claim_topic: felt252) {
             let ownable_comp = get_dep_component!(@self, Owner);
             ownable_comp.assert_only_owner();
-            let required_claim_topics_storage_path = self.Verifier_required_claim_topics.as_path();
             assert(
-                required_claim_topics_storage_path.len() < 15, Errors::TOPIC_LENGTH_EXCEEDS_LIMIT,
+                self.Verifier_required_claim_topics.len() < 15, Errors::TOPIC_LENGTH_EXCEEDS_LIMIT,
             );
+            let mut iterator = self.Verifier_required_claim_topics.deref().into_iter_full_range();
 
-            for i in 0..required_claim_topics_storage_path.len() {
-                assert(
-                    required_claim_topics_storage_path.at(i).read() != claim_topic,
-                    Errors::TOPIC_EXIST,
-                )
-            }
+            let is_topics_exist = iterator.any(|_claim_topic| _claim_topic.read() == claim_topic);
+            assert(!is_topics_exist, Errors::TOPIC_EXIST);
 
-            required_claim_topics_storage_path.push(claim_topic);
+            self.Verifier_required_claim_topics.push(claim_topic);
             self.emit(ClaimTopicAdded { claim_topic });
         }
 
@@ -212,12 +208,11 @@ pub mod VerifierComponent {
 
         /// TODO: return span instead
         fn get_claim_topics(self: @ComponentState<TContractState>) -> Array<felt252> {
-            let mut claim_topics = array![];
-
-            for i in 0..self.Verifier_required_claim_topics.len() {
-                claim_topics.append(self.Verifier_required_claim_topics[i].read());
-            }
-            claim_topics
+            self
+                .Verifier_required_claim_topics
+                .into_iter_full_range()
+                .map(|claim_topic| claim_topic.read())
+                .collect::<Array<felt252>>()
         }
     }
 
@@ -378,64 +373,55 @@ pub mod VerifierComponent {
         }
 
         fn get_trusted_issuers(self: @ComponentState<TContractState>) -> Array<ContractAddress> {
-            let mut trusted_issuers = array![];
-            for i in 0..self.Verifier_trusted_issuers.len() {
-                trusted_issuers.append(self.Verifier_trusted_issuers.at(i).read());
-            }
-            trusted_issuers
+            self
+                .Verifier_trusted_issuers
+                .into_iter_full_range()
+                .map(|issuer| issuer.read())
+                .collect::<Array<ContractAddress>>()
         }
 
         fn get_trusted_issuers_for_claim_topic(
             self: @ComponentState<TContractState>, claim_topic: felt252,
         ) -> Array<ContractAddress> {
-            let mut trusted_issuers = array![];
-            let trusted_issuers_for_claim_topics_storage = self
+            self
                 .Verifier_claim_topics_to_trusted_issuers
-                .entry(claim_topic);
-
-            for i in 0..trusted_issuers_for_claim_topics_storage.len() {
-                trusted_issuers.append(trusted_issuers_for_claim_topics_storage.at(i).read());
-            }
-            trusted_issuers
+                .entry(claim_topic)
+                .into_iter_full_range()
+                .map(|issuer| issuer.read())
+                .collect::<Array<ContractAddress>>()
         }
 
         fn is_trusted_issuer(
             self: @ComponentState<TContractState>, issuer: ContractAddress,
         ) -> bool {
-            self.Verifier_trusted_issuer_claim_topics.as_path().entry(issuer).len() > 0
+            self.Verifier_trusted_issuer_claim_topics.as_path().entry(issuer).len().is_non_zero()
         }
 
         fn get_trusted_issuer_claim_topics(
             self: @ComponentState<TContractState>, trusted_issuer: ContractAddress,
         ) -> Array<felt252> {
-            let trusted_issuer_claim_topics_storage_path = self
+            let claim_topics_storage_path = self
                 .Verifier_trusted_issuer_claim_topics
-                .as_path()
                 .entry(trusted_issuer);
-            let claim_topics_len = trusted_issuer_claim_topics_storage_path.len();
-            assert(claim_topics_len.is_non_zero(), Errors::TRUSTED_ISSUER_DOES_NOT_EXIST);
+            assert(
+                claim_topics_storage_path.len().is_non_zero(),
+                Errors::TRUSTED_ISSUER_DOES_NOT_EXIST,
+            );
 
-            let mut claim_topics = array![];
-            for i in 0..claim_topics_len {
-                claim_topics.append(trusted_issuer_claim_topics_storage_path.at(i).read());
-            }
-            claim_topics
+            claim_topics_storage_path
+                .into_iter_full_range()
+                .map(|claim_topic| claim_topic.read())
+                .collect::<Array<felt252>>()
         }
 
         fn has_claim_topic(
             self: @ComponentState<TContractState>, issuer: ContractAddress, claim_topic: felt252,
         ) -> bool {
-            let mut has_claim = false;
-            let trusted_issuer_claim_topics_storage_path = self
+            let mut iterator = self
                 .Verifier_trusted_issuer_claim_topics
-                .entry(issuer);
-            for i in 0..trusted_issuer_claim_topics_storage_path.len() {
-                if claim_topic == trusted_issuer_claim_topics_storage_path.at(i).read() {
-                    has_claim = true;
-                    break;
-                };
-            }
-            has_claim
+                .entry(issuer)
+                .into_iter_full_range();
+            iterator.any(|topic| topic.read() == claim_topic)
         }
     }
 
@@ -538,4 +524,3 @@ pub mod VerifierComponent {
         }
     }
 }
-
