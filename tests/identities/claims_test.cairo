@@ -1,8 +1,8 @@
 pub mod add_claim {
     pub mod when_self_attested_claim {
         use core::poseidon::poseidon_hash_span;
-        use onchain_id_starknet::interface::ierc735;
-        use onchain_id_starknet::interface::iidentity::IdentityABIDispatcherTrait;
+        use onchain_id_starknet::identity::interface::ierc735;
+        use onchain_id_starknet::identity::interface::iidentity::IdentityABIDispatcherTrait;
         use onchain_id_starknet::storage::signature::{Signature, StarkSignature};
         use snforge_std::signature::SignerTrait;
         use snforge_std::signature::stark_curve::{
@@ -260,8 +260,8 @@ pub mod add_claim {
 
     pub mod when_issued_by_claim_issuer {
         use core::poseidon::poseidon_hash_span;
-        use onchain_id_starknet::interface::ierc735;
-        use onchain_id_starknet::interface::iidentity::IdentityABIDispatcherTrait;
+        use onchain_id_starknet::identity::interface::ierc735;
+        use onchain_id_starknet::identity::interface::iidentity::IdentityABIDispatcherTrait;
         use onchain_id_starknet::storage::signature::{Signature, StarkSignature};
         use snforge_std::signature::SignerTrait;
         use snforge_std::signature::stark_curve::{
@@ -482,8 +482,8 @@ pub mod add_claim {
 
 pub mod update_claim {
     use core::poseidon::poseidon_hash_span;
-    use onchain_id_starknet::interface::ierc735;
-    use onchain_id_starknet::interface::iidentity::IdentityABIDispatcherTrait;
+    use onchain_id_starknet::identity::interface::ierc735;
+    use onchain_id_starknet::identity::interface::iidentity::IdentityABIDispatcherTrait;
     use onchain_id_starknet::storage::signature::{Signature, StarkSignature};
     use snforge_std::signature::SignerTrait;
     use snforge_std::signature::stark_curve::{
@@ -606,8 +606,8 @@ pub mod update_claim {
 
 pub mod remove_claim {
     use core::num::traits::Zero;
-    use onchain_id_starknet::interface::ierc735;
-    use onchain_id_starknet::interface::iidentity::IdentityABIDispatcherTrait;
+    use onchain_id_starknet::identity::interface::ierc735;
+    use onchain_id_starknet::identity::interface::iidentity::IdentityABIDispatcherTrait;
     use snforge_std::{
         EventSpyAssertionsTrait, spy_events, start_cheat_caller_address, stop_cheat_caller_address,
     };
@@ -769,7 +769,7 @@ pub mod remove_claim {
 
 pub mod get_claim {
     use core::num::traits::Zero;
-    use onchain_id_starknet::interface::iidentity::IdentityABIDispatcherTrait;
+    use onchain_id_starknet::identity::interface::iidentity::IdentityABIDispatcherTrait;
     use onchain_id_starknet::storage::signature::Signature;
     use crate::common::setup_identity;
 
@@ -818,7 +818,7 @@ pub mod get_claim {
 }
 
 pub mod get_claims_by_topic {
-    use onchain_id_starknet::interface::iidentity::IdentityABIDispatcherTrait;
+    use onchain_id_starknet::identity::interface::iidentity::IdentityABIDispatcherTrait;
     use crate::common::setup_identity;
 
     #[test]

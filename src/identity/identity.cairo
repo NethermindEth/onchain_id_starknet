@@ -2,7 +2,7 @@
 mod Identity {
     use openzeppelin_upgrades::upgradeable::UpgradeableComponent;
     use starknet::ContractAddress;
-    use crate::identity_component::IdentityComponent;
+    use crate::identity::component::IdentityComponent;
     use crate::proxy::version_manager::VersionManagerComponent;
     use crate::version::version::VersionComponent;
 

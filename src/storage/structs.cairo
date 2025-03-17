@@ -23,41 +23,6 @@ pub impl KeyDetailsPacking of StorePacking<KeyDetails, felt252> {
     }
 }
 
-pub trait BitmapTrait<T> {
-    fn set(bitmap: T, index: usize) -> T;
-    fn unset(bitmap: T, index: usize) -> T;
-    fn get(bitmap: T, index: usize) -> bool;
-}
-
-impl BitmapTraitImpl of BitmapTrait<u128> {
-    fn set(bitmap: u128, index: usize) -> u128 {
-        bitmap | 2_u128.pow(index)
-    }
-
-    fn unset(bitmap: u128, index: usize) -> u128 {
-        bitmap & (~2_u128.pow(index))
-    }
-
-    fn get(bitmap: u128, index: usize) -> bool {
-        (bitmap & 2_u128.pow(index)).is_non_zero()
-    }
-}
-
-/// Returns all the purposes stored in bitmap.
-pub fn get_all_purposes(purposes: u128) -> Array<felt252> {
-    let mut index = 0;
-    let mut all_purposes = array![];
-    let mut purpouse_invariant = purposes;
-    while purpouse_invariant.is_non_zero() {
-        if (purpouse_invariant & 1).is_non_zero() {
-            all_purposes.append(index.into());
-        }
-        purpouse_invariant /= 2;
-        index += 1;
-    }
-    all_purposes
-}
-
 #[starknet::storage_node]
 pub struct Execution {
     /// The address of contract to call.
@@ -94,4 +59,39 @@ pub struct Claim {
     pub data: ByteArray,
     /// The location of the claim, this can be HTTP links, swarm hashes, IPFS hashes, and such.
     pub uri: ByteArray,
+}
+
+pub trait BitmapTrait<T> {
+    fn set(bitmap: T, index: usize) -> T;
+    fn unset(bitmap: T, index: usize) -> T;
+    fn get(bitmap: T, index: usize) -> bool;
+}
+
+impl BitmapTraitImpl of BitmapTrait<u128> {
+    fn set(bitmap: u128, index: usize) -> u128 {
+        bitmap | 2_u128.pow(index)
+    }
+
+    fn unset(bitmap: u128, index: usize) -> u128 {
+        bitmap & (~2_u128.pow(index))
+    }
+
+    fn get(bitmap: u128, index: usize) -> bool {
+        (bitmap & 2_u128.pow(index)).is_non_zero()
+    }
+}
+
+/// Returns all the purposes stored in bitmap.
+pub fn get_all_purposes(purposes: u128) -> Array<felt252> {
+    let mut index = 0;
+    let mut all_purposes = array![];
+    let mut purpouse_invariant = purposes;
+    while purpouse_invariant.is_non_zero() {
+        if (purpouse_invariant % 2).is_non_zero() {
+            all_purposes.append(index.into());
+        }
+        purpouse_invariant /= 2;
+        index += 1;
+    }
+    all_purposes
 }

@@ -9,9 +9,9 @@ pub mod VerifierComponent {
         IntoIterRange, Map, MutableVecTrait, StorageAsPath, StoragePathEntry,
         StoragePointerReadAccess, StoragePointerWriteAccess, Vec, VecTrait,
     };
-    use crate::interface::ierc735::{IERC735Dispatcher, IERC735DispatcherTrait};
-    use crate::interface::iidentity::{IIdentityDispatcher, IIdentityDispatcherTrait};
-    use crate::interface::iverifier::{
+    use crate::identity::interface::ierc735::{IERC735Dispatcher, IERC735DispatcherTrait};
+    use crate::identity::interface::iidentity::{IIdentityDispatcher, IIdentityDispatcherTrait};
+    use crate::verifiers::interface::{
         IClaimTopicsRegistry, ITrustedIssuersRegistry, IVerifier, VerifierABI,
     };
 

@@ -10,8 +10,8 @@ fn deploy_simple_storage() -> ISimpleStorageDispatcher {
 pub mod execute {
     pub mod when_management_key {
         use core::poseidon::poseidon_hash_span;
-        use onchain_id_starknet::interface::ierc734;
-        use onchain_id_starknet::interface::iidentity::IdentityABIDispatcherTrait;
+        use onchain_id_starknet::identity::interface::ierc734;
+        use onchain_id_starknet::identity::interface::iidentity::IdentityABIDispatcherTrait;
         use onchain_id_starknet::mocks::mock_simple_storage::ISimpleStorageDispatcherTrait;
         use snforge_std::{
             EventSpyAssertionsTrait, spy_events, start_cheat_caller_address,
@@ -153,8 +153,8 @@ pub mod execute {
 
     pub mod when_action_key {
         use core::poseidon::poseidon_hash_span;
-        use onchain_id_starknet::interface::ierc734;
-        use onchain_id_starknet::interface::iidentity::IdentityABIDispatcherTrait;
+        use onchain_id_starknet::identity::interface::ierc734;
+        use onchain_id_starknet::identity::interface::iidentity::IdentityABIDispatcherTrait;
         use onchain_id_starknet::mocks::mock_simple_storage::ISimpleStorageDispatcherTrait;
         use snforge_std::{
             EventSpyAssertionsTrait, spy_events, start_cheat_caller_address,
@@ -318,8 +318,8 @@ pub mod execute {
     }
 
     pub mod when_non_action_key {
-        use onchain_id_starknet::interface::ierc734;
-        use onchain_id_starknet::interface::iidentity::IdentityABIDispatcherTrait;
+        use onchain_id_starknet::identity::interface::ierc734;
+        use onchain_id_starknet::identity::interface::iidentity::IdentityABIDispatcherTrait;
         use snforge_std::{
             EventSpyAssertionsTrait, spy_events, start_cheat_caller_address,
             stop_cheat_caller_address,
@@ -362,8 +362,8 @@ pub mod execute {
 
 pub mod approve {
     use core::poseidon::poseidon_hash_span;
-    use onchain_id_starknet::interface::ierc734;
-    use onchain_id_starknet::interface::iidentity::IdentityABIDispatcherTrait;
+    use onchain_id_starknet::identity::interface::ierc734;
+    use onchain_id_starknet::identity::interface::iidentity::IdentityABIDispatcherTrait;
     use onchain_id_starknet::mocks::mock_simple_storage::ISimpleStorageDispatcherTrait;
     use snforge_std::{
         EventSpyAssertionsTrait, spy_events, start_cheat_caller_address, stop_cheat_caller_address,

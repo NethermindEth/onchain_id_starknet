@@ -1,8 +1,8 @@
 use core::num::traits::Zero;
-use onchain_id_starknet::interface::iimplementation_authority::{
+use onchain_id_starknet::proxy::implementation_authority::ImplementationAuthority;
+use onchain_id_starknet::proxy::interface::{
     IImplementationAuthorityDispatcher, IImplementationAuthorityDispatcherTrait,
 };
-use onchain_id_starknet::proxy::implementation_authority::ImplementationAuthority;
 use openzeppelin_access::ownable::interface::{
     IOwnableTwoStepDispatcher, IOwnableTwoStepDispatcherTrait,
 };

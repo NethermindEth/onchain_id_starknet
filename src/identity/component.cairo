@@ -8,12 +8,12 @@ pub mod IdentityComponent {
         IntoIterRange, Map, MutableVecTrait, StoragePathEntry, StoragePointerReadAccess,
         StoragePointerWriteAccess, Vec,
     };
-    use crate::interface::ierc734::{ERC734Event, IERC734};
-    use crate::interface::ierc735::{ERC735Event, IERC735};
-    use crate::interface::iidentity::{
+    use crate::identity::interface::ierc734::{ERC734Event, IERC734};
+    use crate::identity::interface::ierc735::{ERC735Event, IERC735};
+    use crate::identity::interface::iidentity::{
         IIdentity, IIdentityDispatcher, IIdentityDispatcherTrait, IdentityABI,
     };
-    use crate::interface::{ierc734, ierc735};
+    use crate::identity::interface::{ierc734, ierc735};
     use crate::proxy::version_manager::VersionManagerComponent::InternalTrait as VersionManagerInternalTrait;
     use crate::proxy::version_manager::VersionManagerComponent;
     use crate::storage::signature::{get_public_key_hash, is_valid_signature};

@@ -1,6 +1,6 @@
 pub mod revoke_claim_by_signature_test {
-    use onchain_id_starknet::claim_issuer::ClaimIssuer;
-    use onchain_id_starknet::interface::iclaim_issuer::ClaimIssuerABIDispatcherTrait;
+    use onchain_id_starknet::claim_issuer::claim_issuer::ClaimIssuer;
+    use onchain_id_starknet::claim_issuer::interface::ClaimIssuerABIDispatcherTrait;
     use snforge_std::{
         EventSpyAssertionsTrait, spy_events, start_cheat_caller_address, stop_cheat_caller_address,
     };
@@ -66,8 +66,8 @@ pub mod revoke_claim_by_signature_test {
 }
 
 pub mod revoke_claim {
-    use onchain_id_starknet::claim_issuer::ClaimIssuer;
-    use onchain_id_starknet::interface::iclaim_issuer::ClaimIssuerABIDispatcherTrait;
+    use onchain_id_starknet::claim_issuer::claim_issuer::ClaimIssuer;
+    use onchain_id_starknet::claim_issuer::interface::ClaimIssuerABIDispatcherTrait;
     use snforge_std::{
         EventSpyAssertionsTrait, spy_events, start_cheat_caller_address, stop_cheat_caller_address,
     };
@@ -142,7 +142,7 @@ pub mod revoke_claim {
 
 pub mod is_claim_valid {
     use core::poseidon::poseidon_hash_span;
-    use onchain_id_starknet::interface::iclaim_issuer::ClaimIssuerABIDispatcherTrait;
+    use onchain_id_starknet::claim_issuer::interface::ClaimIssuerABIDispatcherTrait;
     use onchain_id_starknet::storage::signature::{Signature, StarkSignature};
     use snforge_std::signature::SignerTrait;
     use snforge_std::signature::stark_curve::{

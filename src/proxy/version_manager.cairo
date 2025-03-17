@@ -7,7 +7,7 @@ pub trait IUpgradeable<TContractState> {
 #[starknet::component]
 pub mod VersionManagerComponent {
     use core::num::traits::Zero;
-    use onchain_id_starknet::interface::iimplementation_authority::{
+    use onchain_id_starknet::proxy::interface::{
         IImplementationAuthorityDispatcher, IImplementationAuthorityDispatcherTrait,
     };
     use openzeppelin_upgrades::upgradeable::UpgradeableComponent;

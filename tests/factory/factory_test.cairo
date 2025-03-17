@@ -25,7 +25,7 @@ pub mod constructor {
 
 pub mod create_identity {
     use core::num::traits::Zero;
-    use onchain_id_starknet::factory::iid_factory::IIdFactoryDispatcherTrait;
+    use onchain_id_starknet::factory::interface::IIdFactoryDispatcherTrait;
     use snforge_std::{start_cheat_caller_address, stop_cheat_caller_address};
     use crate::common::{setup_factory, setup_identity};
 
@@ -92,10 +92,10 @@ pub mod create_identity {
 
 pub mod create_identity_with_management_keys {
     use core::poseidon::poseidon_hash_span;
-    use onchain_id_starknet::factory::id_factory::IdFactory;
-    use onchain_id_starknet::factory::iid_factory::IIdFactoryDispatcherTrait;
-    use onchain_id_starknet::interface::ierc734;
-    use onchain_id_starknet::interface::iidentity::{
+    use onchain_id_starknet::factory::factory::IdFactory;
+    use onchain_id_starknet::factory::interface::IIdFactoryDispatcherTrait;
+    use onchain_id_starknet::identity::interface::ierc734;
+    use onchain_id_starknet::identity::interface::iidentity::{
         IdentityABIDispatcher, IdentityABIDispatcherTrait,
     };
     use snforge_std::{
@@ -224,8 +224,8 @@ pub mod create_identity_with_management_keys {
 pub mod link_unlink_wallet {
     pub mod link_wallet {
         use core::num::traits::Zero;
-        use onchain_id_starknet::factory::id_factory::IdFactory;
-        use onchain_id_starknet::factory::iid_factory::IIdFactoryDispatcherTrait;
+        use onchain_id_starknet::factory::factory::IdFactory;
+        use onchain_id_starknet::factory::interface::IIdFactoryDispatcherTrait;
         use snforge_std::{
             EventSpyAssertionsTrait, spy_events, start_cheat_caller_address,
             stop_cheat_caller_address,
@@ -323,8 +323,8 @@ pub mod link_unlink_wallet {
 
     pub mod unlink_wallet {
         use core::num::traits::Zero;
-        use onchain_id_starknet::factory::id_factory::IdFactory;
-        use onchain_id_starknet::factory::iid_factory::IIdFactoryDispatcherTrait;
+        use onchain_id_starknet::factory::factory::IdFactory;
+        use onchain_id_starknet::factory::interface::IIdFactoryDispatcherTrait;
         use snforge_std::{
             EventSpyAssertionsTrait, spy_events, start_cheat_caller_address,
             stop_cheat_caller_address,

@@ -6,7 +6,7 @@ pub mod ImplementationAuthority {
     use openzeppelin_access::ownable::ownable::OwnableComponent;
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
     use starknet::{ClassHash, ContractAddress};
-    use crate::interface::iimplementation_authority::IImplementationAuthority;
+    use crate::proxy::interface::IImplementationAuthority;
 
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
 

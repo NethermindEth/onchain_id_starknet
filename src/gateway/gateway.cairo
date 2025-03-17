@@ -3,9 +3,7 @@ pub mod Gateway {
     use core::ecdsa::recover_public_key;
     use core::num::traits::Zero;
     use core::poseidon::poseidon_hash_span;
-    use onchain_id_starknet::factory::iid_factory::{
-        IIdFactoryDispatcher, IIdFactoryDispatcherTrait,
-    };
+    use onchain_id_starknet::factory::interface::{IIdFactoryDispatcher, IIdFactoryDispatcherTrait};
     use openzeppelin_access::ownable::interface::{IOwnableDispatcher, IOwnableDispatcherTrait};
     use openzeppelin_access::ownable::ownable::OwnableComponent;
     use starknet::ContractAddress;

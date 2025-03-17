@@ -1,9 +1,9 @@
 use core::num::traits::Zero;
-use onchain_id_starknet::interface::iimplementation_authority::{
-    IImplementationAuthorityDispatcher, IImplementationAuthorityDispatcherTrait,
-};
 use onchain_id_starknet::mocks::mock_with_version_manager::{
     IMockWithVersionManagerDispatcher, IMockWithVersionManagerDispatcherTrait,
+};
+use onchain_id_starknet::proxy::interface::{
+    IImplementationAuthorityDispatcher, IImplementationAuthorityDispatcherTrait,
 };
 use onchain_id_starknet::proxy::version_manager::{
     IUpgradeableDispatcher, IUpgradeableDispatcherTrait,

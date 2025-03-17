@@ -1,9 +1,6 @@
-pub mod claim_issuer;
-pub mod identity;
-pub mod identity_component;
 pub mod factory {
-    pub mod id_factory;
-    pub mod iid_factory;
+    pub mod factory;
+    pub mod interface;
 }
 
 pub mod gateway {
@@ -11,17 +8,9 @@ pub mod gateway {
     pub mod interface;
 }
 
-pub mod interface {
-    pub mod iclaim_issuer;
-    pub mod ierc734;
-    pub mod ierc735;
-    pub mod iidentity;
-    pub mod iimplementation_authority;
-    pub mod iverifier;
-}
-
 pub mod proxy {
     pub mod implementation_authority;
+    pub mod interface;
     pub mod version_manager;
 }
 
@@ -31,6 +20,7 @@ pub mod storage {
 }
 
 pub mod verifiers {
+    pub mod interface;
     pub mod verifier;
 }
 
@@ -43,4 +33,15 @@ pub mod mocks {
     pub mod mock_simple_storage;
     pub mod mock_verifier;
     pub mod mock_with_version_manager;
+}
+
+pub mod claim_issuer {
+    pub mod claim_issuer;
+    pub mod interface;
+}
+
+pub mod identity {
+    pub mod component;
+    pub mod identity;
+    pub mod interface;
 }
