@@ -2,7 +2,7 @@ use core::num::traits::Zero;
 use onchain_id_starknet::identity::interface::iidentity::IdentityABIDispatcherTrait;
 use onchain_id_starknet::proxy::implementation_authority::IdentityImplementationAuthority;
 use onchain_id_starknet::proxy::interface::{
-    IImplementationAuthorityDispatcher, IImplementationAuthorityDispatcherTrait,
+    IIdentityImplementationAuthorityDispatcher, IIdentityImplementationAuthorityDispatcherTrait,
 };
 use openzeppelin_access::ownable::interface::{
     IOwnableTwoStepDispatcher, IOwnableTwoStepDispatcherTrait,
@@ -26,14 +26,14 @@ pub fn OWNER_ADDRESS() -> ContractAddress {
     'owner'.try_into().unwrap()
 }
 
-fn deploy() -> IImplementationAuthorityDispatcher {
+fn deploy() -> IIdentityImplementationAuthorityDispatcher {
     let implementation_authority_contract = declare("IdentityImplementationAuthority")
         .unwrap()
         .contract_class();
     let (implementation_authority_address, _) = implementation_authority_contract
         .deploy(@array![INITIAL_CLASS_HASH().into(), OWNER_ADDRESS().into()])
         .unwrap();
-    IImplementationAuthorityDispatcher { contract_address: implementation_authority_address }
+    IIdentityImplementationAuthorityDispatcher { contract_address: implementation_authority_address }
 }
 
 #[test]

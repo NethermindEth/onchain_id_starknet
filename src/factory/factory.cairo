@@ -11,7 +11,7 @@ pub mod IdFactory {
     use crate::factory::interface::IIdFactory;
     use crate::identity::interface::ierc734::{IERC734Dispatcher, IERC734DispatcherTrait};
     use crate::proxy::interface::{
-        IImplementationAuthorityDispatcher, IImplementationAuthorityDispatcherTrait,
+        IIdentityImplementationAuthorityDispatcher, IIdentityImplementationAuthorityDispatcherTrait,
     };
 
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
@@ -514,7 +514,7 @@ pub mod IdFactory {
             wallet: ContractAddress,
         ) -> ContractAddress {
             let implementation_class_hash: starknet::ClassHash =
-                IImplementationAuthorityDispatcher {
+                IIdentityImplementationAuthorityDispatcher {
                 contract_address: implementation_authority,
             }
                 .get_implementation();

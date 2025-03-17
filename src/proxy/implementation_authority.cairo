@@ -5,7 +5,7 @@ pub mod IdentityImplementationAuthority {
     use openzeppelin_upgrades::interface::{IUpgradeableDispatcher, IUpgradeableDispatcherTrait};
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
     use starknet::{ClassHash, ContractAddress};
-    use crate::proxy::interface::IImplementationAuthority;
+    use crate::proxy::interface::IIdentityImplementationAuthority;
 
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
 
@@ -48,7 +48,7 @@ pub mod IdentityImplementationAuthority {
     }
 
     #[abi(embed_v0)]
-    impl ImplementationAuthorityImpl of IImplementationAuthority<ContractState> {
+    impl ImplementationAuthorityImpl of IIdentityImplementationAuthority<ContractState> {
         /// This function updates the class_hash used as implementation by contracts linked to this
         /// implementation authority.
         ///
