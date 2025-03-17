@@ -18,8 +18,8 @@ pub mod IdentityComponent {
     use openzeppelin_upgrades::upgradeable::UpgradeableComponent;
     use starknet::ContractAddress;
     use starknet::storage::{
-        Map, MutableVecTrait, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
-        Vec, VecTrait,
+        IntoIterRange, Map, MutableVecTrait, StoragePathEntry, StoragePointerReadAccess,
+        StoragePointerWriteAccess, Vec,
     };
 
     #[storage]
@@ -239,22 +239,21 @@ pub mod IdentityComponent {
             execution_request_status_bitmap = BitmapTrait::set(execution_request_status_bitmap, 0);
             let selector = execution_storage_path.selector.read();
 
-            let mut calldata = array![];
-            let calldata_storage = execution_storage_path.calldata.deref();
-            for i in 0..calldata_storage.len() {
-                calldata.append(calldata_storage.at(i).read())
-            }
+            let calldata = execution_storage_path
+                .calldata
+                .into_iter_full_range()
+                .map(|x| x.read())
+                .collect::<Array<felt252>>()
+                .span();
 
             let execution_result =
-                match starknet::syscalls::call_contract_syscall(
-                    to_address, selector, calldata.span(),
-                ) {
+                match starknet::syscalls::call_contract_syscall(to_address, selector, calldata) {
                 Result::Ok => {
                     self
                         .emit(
                             ERC734Event::Executed(
                                 ierc734::Executed {
-                                    execution_id, to: to_address, selector, data: calldata.span(),
+                                    execution_id, to: to_address, selector, data: calldata,
                                 },
                             ),
                         );
@@ -265,7 +264,7 @@ pub mod IdentityComponent {
                         .emit(
                             ERC734Event::ExecutionFailed(
                                 ierc734::ExecutionFailed {
-                                    execution_id, to: to_address, selector, data: calldata.span(),
+                                    execution_id, to: to_address, selector, data: calldata,
                                 },
                             ),
                         );
@@ -368,12 +367,13 @@ pub mod IdentityComponent {
         fn get_keys_by_purpose(
             self: @ComponentState<TContractState>, purpose: felt252,
         ) -> Span<felt252> {
-            let mut keys = array![];
-            let keys_storage_path = self.Identity_keys_by_purpose.entry(purpose);
-            for i in 0..keys_storage_path.len() {
-                keys.append(keys_storage_path[i].read());
-            }
-            keys.span()
+            self
+                .Identity_keys_by_purpose
+                .entry(purpose)
+                .into_iter_full_range()
+                .map(|x| x.read())
+                .collect::<Array<felt252>>()
+                .span()
         }
 
         /// Determines if key has given purpose.
@@ -427,7 +427,7 @@ pub mod IdentityComponent {
             claim_storage_path.data.write(data.clone());
             claim_storage_path.uri.write(uri.clone());
 
-            if claim_storage_path.issuer.read() != issuer {
+            if claim_storage_path.issuer.read().is_zero() {
                 let signature_storage = claim_storage_path.signature.deref();
                 for chunk in signature {
                     signature_storage.push(*chunk);
@@ -478,9 +478,7 @@ pub mod IdentityComponent {
                     break;
                 }
             }
-            assert(
-                claim_index != Option::None, Errors::CLAIM_DOES_NOT_EXIST,
-            ); // NOTE: this check might not be necessary due to above assertion we might assume claim_id will always be there
+            assert(claim_index != Option::None, Errors::CLAIM_DOES_NOT_EXIST);
 
             if claim_index.unwrap() != claims_by_topic_len - 1 {
                 let last_element = claims_by_topic_storage_path.pop().unwrap();
@@ -489,11 +487,12 @@ pub mod IdentityComponent {
                 claims_by_topic_storage_path.pop().unwrap();
             }
 
-            let mut signature = array![];
-            let signature_storage = claim_storage_path.signature.deref();
-            for i in 0..signature_storage.len() {
-                signature.append(signature_storage.at(i).read());
-            }
+            let signature = claim_storage_path
+                .signature
+                .into_iter_full_range()
+                .map(|x| x.read())
+                .collect::<Array<felt252>>()
+                .span();
 
             self
                 .emit(
@@ -503,7 +502,7 @@ pub mod IdentityComponent {
                             topic,
                             scheme: claim_storage_path.scheme.read(),
                             issuer: claim_storage_path.issuer.read(),
-                            signature: signature.span(),
+                            signature,
                             data: claim_storage_path.data.read(),
                             uri: claim_storage_path.uri.read(),
                         },
@@ -526,17 +525,18 @@ pub mod IdentityComponent {
             self: @ComponentState<TContractState>, claim_id: felt252,
         ) -> (felt252, felt252, ContractAddress, Span<felt252>, ByteArray, ByteArray) {
             let claim_storage_path = self.Identity_claims.entry(claim_id);
-            let mut signature = array![];
-            let signature_storage = claim_storage_path.signature.deref();
-            for i in 0..signature_storage.len() {
-                signature.append(signature_storage.at(i).read());
-            }
+            let signature = claim_storage_path
+                .signature
+                .into_iter_full_range()
+                .map(|x| x.read())
+                .collect::<Array<felt252>>()
+                .span();
 
             (
                 claim_storage_path.topic.read(),
                 claim_storage_path.scheme.read(),
                 claim_storage_path.issuer.read(),
-                signature.span(),
+                signature,
                 claim_storage_path.data.read(),
                 claim_storage_path.uri.read(),
             )
@@ -545,12 +545,13 @@ pub mod IdentityComponent {
         fn get_claim_ids_by_topics(
             self: @ComponentState<TContractState>, topic: felt252,
         ) -> Span<felt252> {
-            let mut claim_ids = array![];
-            let claim_ids_storage_path = self.Identity_claims_by_topic.entry(topic);
-            for i in 0..claim_ids_storage_path.len() {
-                claim_ids.append(claim_ids_storage_path[i].read());
-            }
-            claim_ids.span()
+            self
+                .Identity_claims_by_topic
+                .entry(topic)
+                .into_iter_full_range()
+                .map(|x| x.read())
+                .collect::<Array<felt252>>()
+                .span()
         }
     }
 
