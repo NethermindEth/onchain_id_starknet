@@ -23,6 +23,78 @@ pub impl KeyDetailsPacking of StorePacking<KeyDetails, felt252> {
     }
 }
 
+pub trait KeyDetailsTrait {
+    fn grant_purpose(ref self: KeyDetails, purpose: felt252);
+    fn revoke_purpose(ref self: KeyDetails, purpose: felt252);
+    fn has_purpose(self: @KeyDetails, purpose: felt252) -> bool;
+    fn get_all_purposes(self: @KeyDetails) -> Array<felt252>;
+}
+
+impl KeyDetailsImpl of KeyDetailsTrait {
+    fn grant_purpose(ref self: KeyDetails, purpose: felt252) {
+        BitmapTrait::set(ref self.purposes, purpose.try_into().expect('Invalid purpose'));
+    }
+
+    fn revoke_purpose(ref self: KeyDetails, purpose: felt252) {
+        BitmapTrait::unset(ref self.purposes, purpose.try_into().expect('Invalid purpose'));
+    }
+
+    fn has_purpose(self: @KeyDetails, purpose: felt252) -> bool {
+        BitmapTrait::get(*self.purposes, purpose.try_into().expect('Invalid purpose'))
+    }
+
+    fn get_all_purposes(self: @KeyDetails) -> Array<felt252> {
+        let mut index = 0;
+        let mut all_purposes = array![];
+        let mut purposes = *self.purposes;
+        while purposes.is_non_zero() {
+            if (purposes % 2).is_non_zero() {
+                all_purposes.append(index.into());
+            }
+            purposes /= 2;
+            index += 1;
+        }
+        all_purposes
+    }
+}
+
+trait BitmapTrait<T> {
+    fn new() -> T;
+    fn set(ref bitmap: T, index: usize);
+    fn unset(ref bitmap: T, index: usize);
+    fn get(bitmap: T, index: usize) -> bool;
+}
+
+impl BitmapTraitImpl of BitmapTrait<u128> {
+    fn new() -> u128 {
+        0
+    }
+
+    fn set(ref bitmap: u128, index: usize) {
+        assert(index < 128, 'Index out of range');
+        bitmap = bitmap | 2_u128.pow(index);
+    }
+
+    fn unset(ref bitmap: u128, index: usize) {
+        assert(index < 128, 'Index out of range');
+        bitmap = bitmap & (~2_u128.pow(index));
+    }
+
+    fn get(bitmap: u128, index: usize) -> bool {
+        assert(index < 128, 'Index out of range');
+        (bitmap & 2_u128.pow(index)).is_non_zero()
+    }
+}
+
+#[derive(Drop, Copy, Serde, starknet::Store, PartialEq)]
+pub enum ExecutionRequestStatus {
+    #[default]
+    PendingApproval,
+    Approved,
+    Rejected,
+    Executed,
+}
+
 #[starknet::storage_node]
 pub struct Execution {
     /// The address of contract to call.
@@ -31,9 +103,8 @@ pub struct Execution {
     pub selector: felt252,
     /// The calldata to pass to entry point.
     pub calldata: Vec<felt252>,
-    /// Bitmap that holds execution request status. index 0 is approved, index 1 is rejected, index
-    /// 2 is executed.
-    pub execution_request_status: u128,
+    /// Enum that stores information about status of execution request
+    pub execution_request_status: ExecutionRequestStatus,
 }
 // TODO: Go over comments
 #[starknet::storage_node]
@@ -59,39 +130,4 @@ pub struct Claim {
     pub data: ByteArray,
     /// The location of the claim, this can be HTTP links, swarm hashes, IPFS hashes, and such.
     pub uri: ByteArray,
-}
-
-pub trait BitmapTrait<T> {
-    fn set(bitmap: T, index: usize) -> T;
-    fn unset(bitmap: T, index: usize) -> T;
-    fn get(bitmap: T, index: usize) -> bool;
-}
-
-impl BitmapTraitImpl of BitmapTrait<u128> {
-    fn set(bitmap: u128, index: usize) -> u128 {
-        bitmap | 2_u128.pow(index)
-    }
-
-    fn unset(bitmap: u128, index: usize) -> u128 {
-        bitmap & (~2_u128.pow(index))
-    }
-
-    fn get(bitmap: u128, index: usize) -> bool {
-        (bitmap & 2_u128.pow(index)).is_non_zero()
-    }
-}
-
-/// Returns all the purposes stored in bitmap.
-pub fn get_all_purposes(purposes: u128) -> Array<felt252> {
-    let mut index = 0;
-    let mut all_purposes = array![];
-    let mut purpouse_invariant = purposes;
-    while purpouse_invariant.is_non_zero() {
-        if (purpouse_invariant % 2).is_non_zero() {
-            all_purposes.append(index.into());
-        }
-        purpouse_invariant /= 2;
-        index += 1;
-    }
-    all_purposes
 }

@@ -33,7 +33,9 @@ fn deploy() -> IIdentityImplementationAuthorityDispatcher {
     let (implementation_authority_address, _) = implementation_authority_contract
         .deploy(@array![INITIAL_CLASS_HASH().into(), OWNER_ADDRESS().into()])
         .unwrap();
-    IIdentityImplementationAuthorityDispatcher { contract_address: implementation_authority_address }
+    IIdentityImplementationAuthorityDispatcher {
+        contract_address: implementation_authority_address,
+    }
 }
 
 #[test]

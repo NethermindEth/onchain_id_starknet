@@ -14,7 +14,9 @@ pub mod IdentityComponent {
     };
     use crate::identity::interface::{ierc734, ierc735};
     use crate::storage::signature::{get_public_key_hash, is_valid_signature};
-    use crate::storage::structs::{BitmapTrait, Claim, Execution, KeyDetails, get_all_purposes};
+    use crate::storage::structs::{
+        Claim, Execution, ExecutionRequestStatus, KeyDetails, KeyDetailsTrait,
+    };
 
     #[storage]
     pub struct Storage {
@@ -50,6 +52,12 @@ pub mod IdentityComponent {
         pub const EXECUTION_REJECTED: felt252 = 'Request has been rejected';
     }
 
+    pub mod Purpose {
+        pub const MANAGEMENT: felt252 = 1;
+        pub const ACTION: felt252 = 2;
+        pub const CLAIM: felt252 = 3;
+    }
+
     #[embeddable_as(IdentityImpl)]
     pub impl Identity<
         TContractState, +Drop<TContractState>, +HasComponent<TContractState>,
@@ -62,7 +70,7 @@ pub mod IdentityComponent {
             data: ByteArray,
         ) -> bool {
             let pub_key_hash = get_public_key_hash(signature);
-            if !self.key_has_purpose(pub_key_hash, 3) {
+            if !self.key_has_purpose(pub_key_hash, Purpose::CLAIM) {
                 return false;
             }
 
@@ -112,12 +120,8 @@ pub mod IdentityComponent {
             let key_storage_path = self.Identity_keys.entry(key);
             let mut key_details = key_storage_path.read();
             let purpose_bit_index = purpose.try_into().expect('Invalid Purpose');
-            assert(purpose_bit_index < 128, 'Purpose is not in valid range');
-            assert(
-                !BitmapTrait::get(key_details.purposes, purpose_bit_index),
-                Errors::KEY_ALREADY_HAS_PURPOSE,
-            );
-            key_details.purposes = BitmapTrait::set(key_details.purposes, purpose_bit_index);
+            assert(!key_details.has_purpose(purpose_bit_index), Errors::KEY_ALREADY_HAS_PURPOSE);
+            key_details.grant_purpose(purpose_bit_index);
             key_details.key_type = key_type.try_into().expect('Invalid Key Type');
             key_storage_path.write(key_details);
 
@@ -149,14 +153,9 @@ pub mod IdentityComponent {
             let key_storage_path = self.Identity_keys.entry(key);
             let mut key_details = key_storage_path.read();
             assert(key_details.purposes.is_non_zero(), Errors::KEY_NOT_REGISTERED);
-            let purpose_bit_index: usize = purpose.try_into().expect('Invalid Purpose');
-            assert(purpose_bit_index < 128, 'Purpose is not in valid range');
-            assert(
-                BitmapTrait::get(key_details.purposes, purpose_bit_index),
-                Errors::KEY_DOES_NOT_HAVE_PURPOSE,
-            );
+            assert(key_details.has_purpose(purpose), Errors::KEY_DOES_NOT_HAVE_PURPOSE);
 
-            key_details.purposes = BitmapTrait::unset(key_details.purposes, purpose_bit_index);
+            key_details.revoke_purpose(purpose);
 
             let key_type: felt252 = key_details.key_type.into();
             if key_details.purposes.is_zero() {
@@ -206,31 +205,41 @@ pub mod IdentityComponent {
                 Errors::NON_EXISTING_EXECUTION,
             );
             let execution_storage_path = self.Identity_executions.entry(execution_id);
-            let mut execution_request_status_bitmap = execution_storage_path
+            let mut execution_request_status = execution_storage_path
                 .execution_request_status
                 .read();
-            assert(!BitmapTrait::get(execution_request_status_bitmap, 2), Errors::ALREADY_EXECUTED);
+
             assert(
-                !BitmapTrait::get(execution_request_status_bitmap, 1), Errors::EXECUTION_REJECTED,
+                execution_request_status != ExecutionRequestStatus::Executed,
+                Errors::ALREADY_EXECUTED,
+            );
+            assert(
+                execution_request_status != ExecutionRequestStatus::Rejected,
+                Errors::EXECUTION_REJECTED,
             );
             let caller_hash = poseidon_hash_span(
                 array![starknet::get_caller_address().into()].span(),
             );
             let to_address = execution_storage_path.to.read();
             if to_address == starknet::get_contract_address() {
-                assert(self.key_has_purpose(caller_hash, 1), Errors::NOT_HAVE_MANAGEMENT_KEY);
+                assert(
+                    self.key_has_purpose(caller_hash, Purpose::MANAGEMENT),
+                    Errors::NOT_HAVE_MANAGEMENT_KEY,
+                );
             } else {
-                assert(self.key_has_purpose(caller_hash, 2), Errors::NOT_HAVE_ACTION_KEY);
+                assert(
+                    self.key_has_purpose(caller_hash, Purpose::ACTION), Errors::NOT_HAVE_ACTION_KEY,
+                );
             }
             self.emit(ERC734Event::Approved(ierc734::Approved { execution_id, approved: approve }));
             if !approve {
                 execution_storage_path
                     .execution_request_status
-                    .write(BitmapTrait::set(execution_request_status_bitmap, 1));
+                    .write(ExecutionRequestStatus::Rejected);
                 return false;
             }
 
-            execution_request_status_bitmap = BitmapTrait::set(execution_request_status_bitmap, 0);
+            execution_request_status = ExecutionRequestStatus::Approved;
             let selector = execution_storage_path.selector.read();
 
             let calldata = execution_storage_path
@@ -267,10 +276,9 @@ pub mod IdentityComponent {
             };
 
             if execution_result {
-                execution_request_status_bitmap =
-                    BitmapTrait::set(execution_request_status_bitmap, 2);
+                execution_request_status = ExecutionRequestStatus::Executed;
             }
-            execution_storage_path.execution_request_status.write(execution_request_status_bitmap);
+            execution_storage_path.execution_request_status.write(execution_request_status);
 
             execution_result
         }
@@ -305,9 +313,10 @@ pub mod IdentityComponent {
                 array![starknet::get_caller_address().into()].span(),
             );
 
-            if to != starknet::get_contract_address() && self.key_has_purpose(caller_hash, 2) {
+            if to != starknet::get_contract_address()
+                && self.key_has_purpose(caller_hash, Purpose::ACTION) {
                 self._approve(execution_nonce, to, selector, calldata);
-            } else if self.key_has_purpose(caller_hash, 1) {
+            } else if self.key_has_purpose(caller_hash, Purpose::MANAGEMENT) {
                 self._approve(execution_nonce, to, selector, calldata);
             }
 
@@ -332,7 +341,7 @@ pub mod IdentityComponent {
             if key_details.purposes.is_zero() {
                 return ([].span(), Zero::zero(), Zero::zero());
             }
-            (get_all_purposes(key_details.purposes).span(), key_details.key_type.into(), key)
+            (key_details.get_all_purposes().span(), key_details.key_type.into(), key)
         }
 
         /// Returns the purposes given key has.
@@ -345,8 +354,7 @@ pub mod IdentityComponent {
         ///
         /// A `Span<felt252>` representing the array of purposes given key has.
         fn get_key_purposes(self: @ComponentState<TContractState>, key: felt252) -> Span<felt252> {
-            let purposes = self.Identity_keys.entry(key).read().purposes;
-            get_all_purposes(purposes).span()
+            self.Identity_keys.entry(key).read().get_all_purposes().span()
         }
 
         /// Returns the keys which has given purpose.
@@ -383,8 +391,8 @@ pub mod IdentityComponent {
         fn key_has_purpose(
             self: @ComponentState<TContractState>, key: felt252, purpose: felt252,
         ) -> bool {
-            let purposes = self.Identity_keys.entry(key).read().purposes;
-            BitmapTrait::get(purposes, 1) || BitmapTrait::get(purposes, purpose.try_into().unwrap())
+            let key_details = self.Identity_keys.entry(key).read();
+            key_details.has_purpose(Purpose::MANAGEMENT) || key_details.has_purpose(purpose)
         }
     }
 
@@ -580,7 +588,10 @@ pub mod IdentityComponent {
             let caller = starknet::get_caller_address();
             assert(
                 caller == starknet::get_contract_address()
-                    || self.key_has_purpose(poseidon_hash_span(array![caller.into()].span()), 1),
+                    || self
+                        .key_has_purpose(
+                            poseidon_hash_span(array![caller.into()].span()), Purpose::MANAGEMENT,
+                        ),
                 Errors::NOT_HAVE_MANAGEMENT_KEY,
             );
         }
@@ -589,7 +600,10 @@ pub mod IdentityComponent {
             let caller = starknet::get_caller_address();
             assert(
                 caller == starknet::get_contract_address()
-                    || self.key_has_purpose(poseidon_hash_span(array![caller.into()].span()), 3),
+                    || self
+                        .key_has_purpose(
+                            poseidon_hash_span(array![caller.into()].span()), Purpose::CLAIM,
+                        ),
                 Errors::NOT_HAVE_CLAIM_KEY,
             );
         }
@@ -625,16 +639,13 @@ pub mod IdentityComponent {
                 },
             };
 
-            let mut execution_request_status_bitmap = BitmapTrait::set(Zero::zero(), 0);
-            if execution_result {
-                execution_request_status_bitmap =
-                    BitmapTrait::set(execution_request_status_bitmap, 2);
-            }
-            self
-                .Identity_executions
-                .entry(execution_id)
-                .execution_request_status
-                .write(execution_request_status_bitmap);
+            let status = if execution_result {
+                ExecutionRequestStatus::Executed
+            } else {
+                ExecutionRequestStatus::Approved
+            };
+
+            self.Identity_executions.entry(execution_id).execution_request_status.write(status);
             execution_result
         }
     }
