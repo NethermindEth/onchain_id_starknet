@@ -182,7 +182,7 @@ pub mod IdFactory {
             assert(wallet.is_non_zero(), Errors::WALLET_IS_ZERO_ADDRESS);
             assert(
                 salt.is_non_zero(), Errors::SALT_IS_ZERO,
-            ); // decide felt252 ok for salt or ByteArray needed
+            );
             let oid_salt = poseidon_hash_span(array!['OID', salt].span());
             let salt_taken_storage_path = self.salt_taken.entry(oid_salt);
             assert(!salt_taken_storage_path.read(), Errors::SALT_TAKEN);
@@ -229,7 +229,7 @@ pub mod IdFactory {
             assert(wallet.is_non_zero(), Errors::WALLET_IS_ZERO_ADDRESS);
             assert(
                 salt.is_non_zero(), Errors::SALT_IS_ZERO,
-            ); // decide felt252 ok for salt or ByteArray needed
+            );
             let oid_salt = poseidon_hash_span(array!['OID', salt].span());
             let salt_taken_storage_path = self.salt_taken.entry(oid_salt);
             assert(!salt_taken_storage_path.read(), Errors::SALT_TAKEN);
@@ -250,7 +250,7 @@ pub mod IdFactory {
             let mut identity_dispatcher = IERC734Dispatcher { contract_address: identity };
             // NOTE: Maybe add batch {add/remove}_key
             for key in management_keys {
-                // Why not let wallet to be registered as management key, is this a flaw? wallet
+                // NOTE: Why not let wallet to be registered as management key, is this a flaw? wallet
                 // will not be initial key but will be linked wallet?
                 assert!(
                     key != poseidon_hash_span(array![wallet.into()].span()),
@@ -304,7 +304,7 @@ pub mod IdFactory {
             assert(token_owner.is_non_zero(), Errors::TOKEN_OWNER_IS_ZERO_ADDRESS);
             assert(
                 salt.is_non_zero(), Errors::SALT_IS_ZERO,
-            ); // decide felt252 ok for salt or ByteArray needed
+            );
             let token_salt = poseidon_hash_span(array!['Token', salt].span());
             let salt_taken_storage_path = self.salt_taken.entry(token_salt);
             assert(!salt_taken_storage_path.read(), Errors::SALT_TAKEN);
@@ -387,18 +387,21 @@ pub mod IdFactory {
 
             old_wallet_user_identity_storage_path.write(Zero::zero());
             let wallets_storage_path = self.wallets.entry(old_wallet_user_identity);
-            let wallets_len = wallets_storage_path.len();
-            for wallet_index in 0..wallets_len {
-                if wallets_storage_path[wallet_index].read() == old_wallet {
-                    if wallet_index != wallets_len - 1 {
-                        let last_element = wallets_storage_path.pop().unwrap();
-                        wallets_storage_path[wallet_index].write(last_element);
-                    } else {
-                        wallets_storage_path.pop().unwrap();
-                    }
-                    break;
+            let mut iterator = wallets_storage_path.into_iter_full_range().enumerate();
+            iterator.find(|iter| {
+                let (_, storage) = iter;
+                storage.read() == old_wallet
+            }).and_then(|val| {
+                let (index, storage) = val;
+                if index.try_into().unwrap() != wallets_storage_path.len() - 1 {
+                    let last_element = wallets_storage_path.pop().unwrap();
+                    storage.write(last_element);
+                } else {
+                    wallets_storage_path.pop().unwrap();
                 }
-            }
+                Some(())
+            }).expect(Errors::WALLET_NOT_LINKED);
+
             self.emit(WalletUnlinked { wallet: old_wallet, identity: old_wallet_user_identity });
         }
 

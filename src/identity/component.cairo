@@ -165,19 +165,21 @@ pub mod IdentityComponent {
             key_storage_path.write(key_details);
 
             let keys_by_purpose_key_storage_path = self.Identity_keys_by_purpose.entry(purpose);
+            let mut iterator = keys_by_purpose_key_storage_path.into_iter_full_range().enumerate();
 
-            let keys_by_purpose_len = keys_by_purpose_key_storage_path.len();
-            for i in 0..keys_by_purpose_len {
-                if keys_by_purpose_key_storage_path[i].read() == key {
-                    if i != keys_by_purpose_len - 1 {
+            iterator.find(|iter| {
+                let (_, storage) = iter;
+                storage.read() == key
+            }).and_then(|val| {
+                let (index, storage) = val;
+                    if index.try_into() != keys_by_purpose_key_storage_path.len() - 1 {
                         let last_element = keys_by_purpose_key_storage_path.pop().unwrap();
-                        keys_by_purpose_key_storage_path[i].write(last_element);
+                        storageæ.write(last_element);
                     } else {
                         keys_by_purpose_key_storage_path.pop().unwrap();
                     }
-                    break;
-                }
-            }
+                    Some(())
+            }).expect(Errors::KEY_DOES_NOT_HAVE_PURPOSE);
 
             self.emit(ERC734Event::KeyRemoved(ierc734::KeyRemoved { key, purpose, key_type }));
             true
@@ -471,24 +473,24 @@ pub mod IdentityComponent {
             let claim_storage_path = self.Identity_claims.entry(claim_id);
             let topic = claim_storage_path.topic.read();
             assert(topic.is_non_zero(), Errors::CLAIM_DOES_NOT_EXIST);
+            
             let claims_by_topic_storage_path = self.Identity_claims_by_topic.entry(topic);
-            let mut claim_index = Option::None;
-            let claims_by_topic_len = claims_by_topic_storage_path.len();
-            for i in 0..claims_by_topic_len {
-                if claims_by_topic_storage_path[i].read() == claim_id {
-                    claim_index = Option::Some(i);
-                    break;
+            let mut iterator = claims_by_topic_storage_path.into_iter_full_range().enumerate();
+
+            claims_by_topic_storage_path.find(|iter| {
+                let (_, storage) = iter;
+                storage.read() == claim_id
+            }).and_then(|val| {
+                let (index, storage) = val;
+                if index.try_into().unwrap() != claims_by_topic_len - 1 {
+                    let last_element = claims_by_topic_storage_path.pop().unwrap();
+                    storage.write(last_element);
+                } else {
+                    claims_by_topic_storage_path.pop().unwrap();
                 }
-            }
-            assert(claim_index != Option::None, Errors::CLAIM_DOES_NOT_EXIST);
 
-            if claim_index.unwrap() != claims_by_topic_len - 1 {
-                let last_element = claims_by_topic_storage_path.pop().unwrap();
-                claims_by_topic_storage_path[claim_index.unwrap()].write(last_element);
-            } else {
-                claims_by_topic_storage_path.pop().unwrap();
-            }
-
+            }).expect(Errors::CLAIM_DOES_NOT_EXIST);
+        
             let signature = claim_storage_path
                 .signature
                 .into_iter_full_range()
