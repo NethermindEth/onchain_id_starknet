@@ -17,6 +17,7 @@ pub mod IdentityComponent {
     use crate::storage::structs::{
         Claim, Execution, ExecutionRequestStatus, KeyDetails, KeyDetailsTrait,
     };
+    use crate::storage::vec_ext::{VecClearTrait, VecDeleteTrait, VecToArrayTrait};
 
     #[storage]
     pub struct Storage {
@@ -167,20 +168,14 @@ pub mod IdentityComponent {
             let keys_by_purpose_key_storage_path = self.Identity_keys_by_purpose.entry(purpose);
             let mut iterator = keys_by_purpose_key_storage_path.into_iter_full_range().enumerate();
 
-            iterator.find(|iter| {
-                let (_, storage) = iter;
-                storage.read() == key
-            }).and_then(|val| {
-                let (index, storage) = val;
-                    if index.try_into() != keys_by_purpose_key_storage_path.len() - 1 {
-                        let last_element = keys_by_purpose_key_storage_path.pop().unwrap();
-                        storageæ.write(last_element);
-                    } else {
-                        keys_by_purpose_key_storage_path.pop().unwrap();
-                    }
-                    Some(())
-            }).expect(Errors::KEY_DOES_NOT_HAVE_PURPOSE);
+            let (index, _) = iterator
+                .find(|iter| {
+                    let (_, storage) = iter;
+                    storage.read() == key
+                })
+                .expect(Errors::KEY_DOES_NOT_HAVE_PURPOSE);
 
+            keys_by_purpose_key_storage_path.pop_swap(index.into());
             self.emit(ERC734Event::KeyRemoved(ierc734::KeyRemoved { key, purpose, key_type }));
             true
         }
@@ -244,12 +239,7 @@ pub mod IdentityComponent {
             execution_request_status = ExecutionRequestStatus::Approved;
             let selector = execution_storage_path.selector.read();
 
-            let calldata = execution_storage_path
-                .calldata
-                .into_iter_full_range()
-                .map(|x| x.read())
-                .collect::<Array<felt252>>()
-                .span();
+            let calldata = execution_storage_path.calldata.to_array().span();
 
             let execution_result =
                 match starknet::syscalls::call_contract_syscall(to_address, selector, calldata) {
@@ -371,13 +361,7 @@ pub mod IdentityComponent {
         fn get_keys_by_purpose(
             self: @ComponentState<TContractState>, purpose: felt252,
         ) -> Span<felt252> {
-            self
-                .Identity_keys_by_purpose
-                .entry(purpose)
-                .into_iter_full_range()
-                .map(|x| x.read())
-                .collect::<Array<felt252>>()
-                .span()
+            self.Identity_keys_by_purpose.entry(purpose).to_array().span()
         }
 
         /// Determines if key has given purpose.
@@ -450,7 +434,7 @@ pub mod IdentityComponent {
             } else {
                 let signature_storage = claim_storage_path.signature.deref();
                 // Clear previous signature
-                while signature_storage.pop().is_some() {}
+                signature_storage.clear();
                 // Store new signature
                 for chunk in signature {
                     signature_storage.push(*chunk);
@@ -473,30 +457,21 @@ pub mod IdentityComponent {
             let claim_storage_path = self.Identity_claims.entry(claim_id);
             let topic = claim_storage_path.topic.read();
             assert(topic.is_non_zero(), Errors::CLAIM_DOES_NOT_EXIST);
-            
-            let claims_by_topic_storage_path = self.Identity_claims_by_topic.entry(topic);
+
+            let mut claims_by_topic_storage_path = self.Identity_claims_by_topic.entry(topic);
             let mut iterator = claims_by_topic_storage_path.into_iter_full_range().enumerate();
 
-            claims_by_topic_storage_path.find(|iter| {
-                let (_, storage) = iter;
-                storage.read() == claim_id
-            }).and_then(|val| {
-                let (index, storage) = val;
-                if index.try_into().unwrap() != claims_by_topic_len - 1 {
-                    let last_element = claims_by_topic_storage_path.pop().unwrap();
-                    storage.write(last_element);
-                } else {
-                    claims_by_topic_storage_path.pop().unwrap();
-                }
+            let (index, _) = iterator
+                .find(|iter| {
+                    let (_, storage) = iter;
+                    storage.read() == claim_id
+                })
+                .expect(Errors::CLAIM_DOES_NOT_EXIST);
 
-            }).expect(Errors::CLAIM_DOES_NOT_EXIST);
-        
-            let signature = claim_storage_path
-                .signature
-                .into_iter_full_range()
-                .map(|x| x.read())
-                .collect::<Array<felt252>>()
-                .span();
+            claims_by_topic_storage_path.pop_swap(index.into());
+
+            let signature_storage = claim_storage_path.signature.deref();
+            let signature = signature_storage.to_array().span();
 
             self
                 .emit(
@@ -517,9 +492,8 @@ pub mod IdentityComponent {
             claim_storage_path.topic.write(Default::default());
             claim_storage_path.scheme.write(Default::default());
             claim_storage_path.issuer.write(Zero::zero());
-            let signature_storage = claim_storage_path.signature.deref();
             // Clear signature
-            while signature_storage.pop().is_some() {}
+            signature_storage.clear();
             claim_storage_path.data.write(Default::default());
             claim_storage_path.uri.write(Default::default());
             true
@@ -529,12 +503,7 @@ pub mod IdentityComponent {
             self: @ComponentState<TContractState>, claim_id: felt252,
         ) -> (felt252, felt252, ContractAddress, Span<felt252>, ByteArray, ByteArray) {
             let claim_storage_path = self.Identity_claims.entry(claim_id);
-            let signature = claim_storage_path
-                .signature
-                .into_iter_full_range()
-                .map(|x| x.read())
-                .collect::<Array<felt252>>()
-                .span();
+            let signature = claim_storage_path.signature.to_array().span();
 
             (
                 claim_storage_path.topic.read(),
@@ -549,13 +518,7 @@ pub mod IdentityComponent {
         fn get_claim_ids_by_topics(
             self: @ComponentState<TContractState>, topic: felt252,
         ) -> Span<felt252> {
-            self
-                .Identity_claims_by_topic
-                .entry(topic)
-                .into_iter_full_range()
-                .map(|x| x.read())
-                .collect::<Array<felt252>>()
-                .span()
+            self.Identity_claims_by_topic.entry(topic).to_array().span()
         }
     }
 

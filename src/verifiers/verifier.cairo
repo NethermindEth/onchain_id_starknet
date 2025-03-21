@@ -7,10 +7,11 @@ pub mod VerifierComponent {
     use starknet::ContractAddress;
     use starknet::storage::{
         IntoIterRange, Map, MutableVecTrait, StorageAsPath, StoragePathEntry,
-        StoragePointerReadAccess, StoragePointerWriteAccess, Vec, VecTrait,
+        StoragePointerReadAccess, Vec, VecTrait,
     };
     use crate::identity::interface::ierc735::{IERC735Dispatcher, IERC735DispatcherTrait};
     use crate::identity::interface::iidentity::{IIdentityDispatcher, IIdentityDispatcherTrait};
+    use crate::storage::vec_ext::{VecClearTrait, VecDeleteTrait, VecToArrayTrait};
     use crate::verifiers::interface::{
         IClaimTopicsRegistry, ITrustedIssuersRegistry, IVerifier, VerifierABI,
     };
@@ -85,81 +86,66 @@ pub mod VerifierComponent {
         +Drop<TContractState>,
     > of IVerifier<ComponentState<TContractState>> {
         fn verify(self: @ComponentState<TContractState>, identity: ContractAddress) -> bool {
-            let mut verified = true;
             let required_claim_topics_storage_path = self.Verifier_required_claim_topics.as_path();
             let claim_topics_to_trusted_issuers_storage_path = self
                 .Verifier_claim_topics_to_trusted_issuers
                 .as_path();
+
             if (required_claim_topics_storage_path.len() == 0) {
                 return false;
             }
+            let identity_dispatcher = IERC735Dispatcher { contract_address: identity };
+            let mut required_claims_iterator = required_claim_topics_storage_path
+                .into_iter_full_range();
 
-            for i in 0..required_claim_topics_storage_path.len() {
-                let mut claim_topic = required_claim_topics_storage_path.at(i).read();
+            required_claims_iterator
+                .all(
+                    |claim_storage| {
+                        let claim_topic = claim_storage.read();
+                        let mut claim_topics_to_trusted_issuers_storage_path =
+                            claim_topics_to_trusted_issuers_storage_path
+                            .entry(claim_topic);
 
-                let mut claim_ids: Array<felt252> = array![];
-
-                let mut claim_topics_to_trusted_issuers_storage_path =
-                    claim_topics_to_trusted_issuers_storage_path
-                    .entry(claim_topic);
-                if claim_topics_to_trusted_issuers_storage_path.len() == 0 {
-                    verified = false;
-                    break;
-                }
-                for j in 0..claim_topics_to_trusted_issuers_storage_path.len() {
-                    let mut claim_issuer = claim_topics_to_trusted_issuers_storage_path
-                        .at(j)
-                        .read();
-                    claim_ids
-                        .append(
-                            poseidon_hash_span(array![claim_issuer.into(), claim_topic].span()),
-                        );
-                }
-
-                let mut j = 0;
-                while j != claim_ids.len() {
-                    let dispatcher = IERC735Dispatcher { contract_address: identity };
-                    let (found_claim_topic, _, issuer, sig, data, _) = dispatcher
-                        .get_claim(*claim_ids.at(j));
-                    if found_claim_topic == claim_topic {
-                        let dispatcher2 = IIdentityDispatcher { contract_address: issuer };
-                        let _validity = dispatcher2
-                            .is_claim_valid(identity, found_claim_topic, sig, data);
-
-                        if _validity {
-                            j = claim_ids.len();
+                        if claim_topics_to_trusted_issuers_storage_path.len() == 0 {
+                            return false;
                         }
 
-                        if !_validity && j == claim_ids.len() - 1 {
-                            verified = false;
-                            break;
-                        }
-                    } else if j == claim_ids.len() - 1 {
-                        verified = false;
-                        break;
-                    }
-                    j += 1;
-                }
-                if !verified {
-                    break;
-                };
-            }
+                        let mut claim_ids = claim_topics_to_trusted_issuers_storage_path
+                            .into_iter_full_range()
+                            .map(
+                                |
+                                    claim_issuer,
+                                | poseidon_hash_span(
+                                    array![claim_issuer.read().into(), claim_topic].span(),
+                                ),
+                            )
+                            .collect::<Array<_>>();
 
-            verified
+                        let mut claim_ids_iter = claim_ids.into_iter();
+                        claim_ids_iter
+                            .any(
+                                |claim_id| {
+                                    let (found_claim_topic, _, issuer, sig, data, _) =
+                                        identity_dispatcher
+                                        .get_claim(claim_id);
+                                    if found_claim_topic != claim_topic {
+                                        return false;
+                                    }
+
+                                    IIdentityDispatcher { contract_address: issuer }
+                                        .is_claim_valid(identity, found_claim_topic, sig, data)
+                                },
+                            )
+                    },
+                )
         }
 
         fn is_claim_topic_required(
             self: @ComponentState<TContractState>, claim_topic: felt252,
         ) -> bool {
-            let mut is_required = false;
             let required_claim_topics_storage_path = self.Verifier_required_claim_topics.as_path();
-            for i in 0..required_claim_topics_storage_path.len() {
-                if claim_topic == required_claim_topics_storage_path.at(i).read() {
-                    is_required = true;
-                    break;
-                };
-            }
-            is_required
+            let mut iterator = required_claim_topics_storage_path.into_iter_full_range();
+            iterator.any(|_claim_topic| _claim_topic.read() == claim_topic)
         }
     }
 
@@ -185,34 +171,33 @@ pub mod VerifierComponent {
             self.emit(ClaimTopicAdded { claim_topic });
         }
 
-        /// TODO:  If claim topics not exist panic
         fn remove_claim_topic(ref self: ComponentState<TContractState>, claim_topic: felt252) {
             let ownable_comp = get_dep_component!(@self, Owner);
             ownable_comp.assert_only_owner();
-            let required_claim_topics_storage_path = self.Verifier_required_claim_topics.as_path();
-            let required_claim_topics_len = required_claim_topics_storage_path.len();
-            for i in 0..required_claim_topics_len {
-                if claim_topic == required_claim_topics_storage_path.at(i).read() {
-                    if i != required_claim_topics_len - 1 {
-                        let last_element = required_claim_topics_storage_path.pop().unwrap();
-                        required_claim_topics_storage_path[i].write(last_element);
-                    } else {
-                        required_claim_topics_storage_path.pop().unwrap();
-                    }
+            let mut required_claim_topics_storage_path = self
+                .Verifier_required_claim_topics
+                .as_path();
+            let mut claim_topic_iterator = required_claim_topics_storage_path
+                .into_iter_full_range()
+                .enumerate();
 
-                    self.emit(ClaimTopicRemoved { claim_topic });
-                    break;
-                };
-            }
+            let (index, _) = claim_topic_iterator
+                .find(
+                    |iter| {
+                        let (_, required_claim_topic) = iter;
+                        required_claim_topic.read() == claim_topic
+                    },
+                )
+                .expect('Claim topic not exists');
+
+            required_claim_topics_storage_path.pop_swap(index.into());
+
+            self.emit(ClaimTopicRemoved { claim_topic });
         }
 
         /// TODO: return span instead
         fn get_claim_topics(self: @ComponentState<TContractState>) -> Array<felt252> {
-            self
-                .Verifier_required_claim_topics
-                .into_iter_full_range()
-                .map(|claim_topic| claim_topic.read())
-                .collect::<Array<felt252>>()
+            self.Verifier_required_claim_topics.to_array()
         }
     }
 
@@ -247,7 +232,6 @@ pub mod VerifierComponent {
             for claim_topic in claim_topics.clone() {
                 self
                     .Verifier_claim_topics_to_trusted_issuers
-                    .as_path()
                     .entry(claim_topic)
                     .push(trusted_issuer);
                 trusted_issuer_claim_topics_storage_path.push(claim_topic);
@@ -285,33 +269,28 @@ pub mod VerifierComponent {
                 for j in 0..claim_topic_trusted_issuers_len {
                     //check the issuer and remove it
                     if trusted_issuer == claim_topic_trusted_issuers_storage.at(j).read() {
-                        if j != claim_topic_trusted_issuers_len - 1 {
-                            let last_element = claim_topic_trusted_issuers_storage.pop().unwrap();
-                            claim_topic_trusted_issuers_storage.at(j).write(last_element);
-                        } else {
-                            claim_topic_trusted_issuers_storage.pop().unwrap();
-                        }
+                        claim_topic_trusted_issuers_storage.pop_swap(j);
                         break;
                     };
                 };
             }
 
             /// Clear trusted issuer claim topics
-            while trusted_issuer_claim_topics_storage_path.pop().is_some() {}
+            trusted_issuer_claim_topics_storage_path.clear();
 
             /// Remove issuer from trusted issuers
-            let trusted_issuers_len = trusted_issuers_storage_path.len();
-            for i in 0..trusted_issuers_len {
-                if trusted_issuer == trusted_issuers_storage_path.at(i).read() {
-                    if i != trusted_issuers_len - 1 {
-                        let last_element = trusted_issuers_storage_path.pop().unwrap();
-                        trusted_issuers_storage_path.at(i).write(last_element)
-                    } else {
-                        trusted_issuers_storage_path.pop().unwrap();
-                    }
-                    break;
-                };
-            }
+            let mut issuer_iterator = trusted_issuers_storage_path
+                .into_iter_full_range()
+                .enumerate();
+            let (index, _) = issuer_iterator
+                .find(|iter| {
+                    let (_, storage) = iter;
+                    storage.read() == trusted_issuer
+                })
+                .expect(Errors::TRUSTED_ISSUER_DOES_NOT_EXIST);
+
+            trusted_issuers_storage_path.pop_swap(index.into());
+
             self.emit(TrustedIssuerRemoved { trusted_issuer: trusted_issuer });
         }
 
@@ -337,7 +316,7 @@ pub mod VerifierComponent {
 
             // Remove issuer from trusted issuers by claim topics list
             for i in 0..trusted_issuer_claim_topics_storage_path.len() {
-                let mut claim_topic = trusted_issuer_claim_topics_storage_path.at(i).read();
+                let claim_topic = trusted_issuer_claim_topics_storage_path.at(i).read();
                 let mut trusted_issuer_for_claim_topic_storage =
                     claim_topics_to_trusted_issuers_storage_path
                     .entry(claim_topic);
@@ -345,21 +324,14 @@ pub mod VerifierComponent {
                     .len();
                 for j in 0..trusted_issuer_for_claim_topic_len {
                     if trusted_issuer == trusted_issuer_for_claim_topic_storage.at(j).read() {
-                        if j != trusted_issuer_for_claim_topic_len - 1 {
-                            let last_element = trusted_issuer_for_claim_topic_storage
-                                .pop()
-                                .unwrap();
-                            trusted_issuer_for_claim_topic_storage.at(j).write(last_element);
-                        } else {
-                            trusted_issuer_for_claim_topic_storage.pop().unwrap();
-                        }
+                        trusted_issuer_for_claim_topic_storage.pop_swap(j);
                         break;
                     }
                 }
             }
 
             // Clear trusted issuer claim topics
-            while trusted_issuer_claim_topics_storage_path.pop().is_some() {}
+            trusted_issuer_claim_topics_storage_path.clear();
 
             // Registers trusted issuers claim topics and registers issuer for claim topic
             for claim_topic in claim_topics.clone() {
@@ -373,22 +345,13 @@ pub mod VerifierComponent {
         }
 
         fn get_trusted_issuers(self: @ComponentState<TContractState>) -> Array<ContractAddress> {
-            self
-                .Verifier_trusted_issuers
-                .into_iter_full_range()
-                .map(|issuer| issuer.read())
-                .collect::<Array<ContractAddress>>()
+            self.Verifier_trusted_issuers.to_array()
         }
 
         fn get_trusted_issuers_for_claim_topic(
             self: @ComponentState<TContractState>, claim_topic: felt252,
         ) -> Array<ContractAddress> {
-            self
-                .Verifier_claim_topics_to_trusted_issuers
-                .entry(claim_topic)
-                .into_iter_full_range()
-                .map(|issuer| issuer.read())
-                .collect::<Array<ContractAddress>>()
+            self.Verifier_claim_topics_to_trusted_issuers.entry(claim_topic).to_array()
         }
 
         fn is_trusted_issuer(
@@ -408,10 +371,7 @@ pub mod VerifierComponent {
                 Errors::TRUSTED_ISSUER_DOES_NOT_EXIST,
             );
 
-            claim_topics_storage_path
-                .into_iter_full_range()
-                .map(|claim_topic| claim_topic.read())
-                .collect::<Array<felt252>>()
+            claim_topics_storage_path.to_array()
         }
 
         fn has_claim_topic(
