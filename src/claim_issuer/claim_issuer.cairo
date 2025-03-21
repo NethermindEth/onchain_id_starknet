@@ -4,11 +4,11 @@ pub mod ClaimIssuer {
     use starknet::storage::{
         Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
     };
-    use crate::version::version;
+    use crate::claim_issuer::interface::IClaimIssuer;
     use crate::identity::component::IdentityComponent;
     use crate::identity::interface::ierc735::{IERC735Dispatcher, IERC735DispatcherTrait};
     use crate::identity::interface::iidentity::IIdentity;
-    use crate::claim_issuer::interface::IClaimIssuer;
+    use crate::version::version;
 
     component!(path: IdentityComponent, storage: identity, event: IdentityEvent);
 
