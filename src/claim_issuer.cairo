@@ -23,7 +23,7 @@ pub mod ClaimIssuer {
 
     #[storage]
     struct Storage {
-        revoked_claims: Map<Signature, bool>,
+        revoked_claims: Map<felt252, bool>,
         #[substorage(v0)]
         identity: IdentityComponent::Storage,
     }

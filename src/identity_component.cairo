@@ -12,7 +12,6 @@ pub mod IdentityComponent {
     use onchain_id_starknet::storage::structs::{
         Claim, Execution, ExecutionRequestStatus, KeyDetails, KeyDetailsTrait,
     };
-    use openzeppelin_upgrades::upgradeable::UpgradeableComponent;
     use starknet::ContractAddress;
     use starknet::storage::{
         Map, MutableVecTrait, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
@@ -427,12 +426,6 @@ pub mod IdentityComponent {
             let claim_storage_path = self.Identity_claims.entry(claim_id);
 
             claim_storage_path.scheme.write(scheme);
-
-            let signature_storage = claim_storage_path.signature.deref();
-            for chunk in signature {
-                signature_storage.append().write(*chunk);
-            }
-
             claim_storage_path.data.write(data.clone());
             claim_storage_path.uri.write(uri.clone());
 
@@ -554,7 +547,12 @@ pub mod IdentityComponent {
         fn get_claim_ids_by_topics(
             self: @ComponentState<TContractState>, topic: felt252,
         ) -> Span<felt252> {
-            Felt252VecToFelt252Array::into(self.Identity_claims_by_topic.entry(topic)).span()
+            let mut claim_ids = array![];
+            let claim_ids_storage = self.Identity_claims_by_topic.entry(topic);
+            for i in 0..claim_ids_storage.len() {
+                claim_ids.append(claim_ids_storage.at(i).read());
+            }
+            claim_ids.span()
         }
     }
 

@@ -131,19 +131,3 @@ pub struct Claim {
     /// The location of the claim, this can be HTTP links, swarm hashes, IPFS hashes, and such.
     pub uri: ByteArray,
 }
-// NOTE: Implement StoragePacking if this type of sig can comply with compact signatures
-
-// Note: Assumes purposes are already cleared
-pub fn delete_key(self: StoragePath<Mutable<Key>>) {
-    self.key_type.write(Zero::zero());
-    self.key.write(Zero::zero());
-}
-
-pub fn delete_claim(self: StoragePath<Mutable<Claim>>) {
-    self.topic.write(Zero::zero());
-    self.scheme.write(Zero::zero());
-    self.issuer.write(Zero::zero());
-    self.signature.deref().clear();
-    self.data.write(Default::default());
-    self.uri.write(Default::default());
-}
