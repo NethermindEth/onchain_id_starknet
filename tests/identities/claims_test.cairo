@@ -277,7 +277,9 @@ pub mod add_claim {
         #[should_panic(expected: 'Invalid claim')]
         fn test_should_panic_when_invalid_claim() {
             let setup = setup_identity();
-            let mut test_claim = get_test_claim(@setup);
+            let mut test_claim = get_test_claim(
+                @setup, setup.alice_identity.contract_address, 42_felt252, "0x0042",
+            );
 
             let mut serialized_claim_to_sign: Array<felt252> = array![];
             test_claim.identity.serialize(ref serialized_claim_to_sign);
@@ -315,7 +317,9 @@ pub mod add_claim {
         #[test]
         fn test_should_add_claim_when_caller_identity() {
             let setup = setup_identity();
-            let test_claim = get_test_claim(@setup);
+            let mut test_claim = get_test_claim(
+                @setup, setup.alice_identity.contract_address, 42_felt252, "0x0042",
+            );
 
             let mut calldata = array![
                 test_claim.topic, test_claim.scheme, test_claim.issuer.into(),
@@ -390,7 +394,9 @@ pub mod add_claim {
         #[test]
         fn test_should_add_claim_when_caller_management_or_claim_key() {
             let setup = setup_identity();
-            let test_claim = get_test_claim(@setup);
+            let mut test_claim = get_test_claim(
+                @setup, setup.alice_identity.contract_address, 42_felt252, "0x0042",
+            );
 
             let mut spy = spy_events();
 
@@ -460,7 +466,9 @@ pub mod add_claim {
         #[should_panic(expected: 'Sender not have claim key')]
         fn test_should_panic_if_caller_is_not_claim_key() {
             let setup = setup_identity();
-            let test_claim = get_test_claim(@setup);
+            let mut test_claim = get_test_claim(
+                @setup, setup.alice_identity.contract_address, 42_felt252, "0x0042",
+            );
 
             start_cheat_caller_address(
                 setup.alice_identity.contract_address, setup.accounts.bob_account.contract_address,
@@ -497,7 +505,9 @@ pub mod update_claim {
     #[test]
     fn test_should_replace_existing_claim() {
         let setup = setup_identity();
-        let test_claim = get_test_claim(@setup);
+        let mut test_claim = get_test_claim(
+            @setup, setup.alice_identity.contract_address, 42_felt252, "0x0042",
+        );
 
         start_cheat_caller_address(
             setup.alice_identity.contract_address, setup.accounts.alice_account.contract_address,
@@ -616,8 +626,9 @@ pub mod remove_claim {
     #[test]
     fn test_should_remove_existing_claim_when_caller_is_identity_contract() {
         let setup = setup_identity();
-        let test_claim = get_test_claim(@setup);
-
+        let mut test_claim = get_test_claim(
+            @setup, setup.alice_identity.contract_address, 42_felt252, "0x0042",
+        );
         start_cheat_caller_address(
             setup.alice_identity.contract_address, setup.accounts.alice_account.contract_address,
         );
@@ -680,8 +691,9 @@ pub mod remove_claim {
     #[should_panic(expected: 'Sender not have claim key')]
     fn test_should_panic_when_caller_is_not_a_claim_key() {
         let setup = setup_identity();
-        let test_claim = get_test_claim(@setup);
-
+        let mut test_claim = get_test_claim(
+            @setup, setup.alice_identity.contract_address, 42_felt252, "0x0042",
+        );
         start_cheat_caller_address(
             setup.alice_identity.contract_address, setup.accounts.bob_account.contract_address,
         );
@@ -693,8 +705,9 @@ pub mod remove_claim {
     #[should_panic(expected: 'There is no claim with this ID')]
     fn test_should_panic_when_claim_does_not_exist() {
         let setup = setup_identity();
-        let test_claim = get_test_claim(@setup);
-
+        let mut test_claim = get_test_claim(
+            @setup, setup.alice_identity.contract_address, 42_felt252, "0x0042",
+        );
         start_cheat_caller_address(
             setup.alice_identity.contract_address, setup.accounts.alice_account.contract_address,
         );
@@ -705,7 +718,9 @@ pub mod remove_claim {
     #[test]
     fn test_should_remove_claim_when_caller_has_claim_or_management_key() {
         let setup = setup_identity();
-        let test_claim = get_test_claim(@setup);
+        let mut test_claim = get_test_claim(
+            @setup, setup.alice_identity.contract_address, 42_felt252, "0x0042",
+        );
 
         start_cheat_caller_address(
             setup.alice_identity.contract_address, setup.accounts.alice_account.contract_address,

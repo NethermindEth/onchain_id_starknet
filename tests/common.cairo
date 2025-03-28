@@ -60,15 +60,6 @@ pub struct IdentitySetup {
 }
 
 #[derive(Drop)]
-pub struct VerifierSetup {
-    pub identity: IdentityABIDispatcher,
-    pub claim_issuer: ClaimIssuerABIDispatcher,
-    pub mock_verifier: VerifierABIDispatcher,
-    pub accounts: TestAccounts,
-    pub alice_claim_666: TestClaim,
-}
-
-#[derive(Drop)]
 pub struct TestClaim {
     pub claim_id: felt252,
     pub topic: felt252,
@@ -338,56 +329,36 @@ pub fn setup_identity() -> IdentitySetup {
     }
 }
 
-pub fn setup_verifier() -> VerifierSetup {
-    let setup = setup_identity();
-
-    let claim_issuer_contract = declare("ClaimIssuer").unwrap().contract_class();
-    let (claim_issuer_address, _) = claim_issuer_contract
-        .deploy(@array![setup.accounts.claim_issuer_account.contract_address.into()])
-        .unwrap();
-    let claim_issuer_dispatcher = ClaimIssuerABIDispatcher {
-        contract_address: claim_issuer_address,
-    };
-
-    let identity_contract = declare("Identity").unwrap().contract_class();
-    let (identity_address, _) = identity_contract
-        .deploy(
-            @array![
-                setup.implementation_authority.contract_address.into(),
-                setup.accounts.alice_account.contract_address.into(),
-            ],
-        )
-        .unwrap();
+pub fn setup_verifier(
+    setup: @IdentitySetup,
+    claims_to_add: Span<felt252>,
+    add_issuer_entries: Span<(ContractAddress, Array<felt252>)>,
+) -> VerifierABIDispatcher {
     let mock_verifier_contract = declare("MockVerifier").unwrap().contract_class();
     let (mock_verifier_address, _) = mock_verifier_contract
-        .deploy(@array![setup.accounts.owner_account.contract_address.into()])
+        .deploy(@array![(*setup.accounts.owner_account.contract_address).into()])
         .unwrap();
     let mut verifier_dispatcher = VerifierABIDispatcher { contract_address: mock_verifier_address };
-    let alice_claim_666 = setup.alice_claim_666;
+
     start_cheat_caller_address(
-        mock_verifier_address, setup.accounts.owner_account.contract_address,
+        mock_verifier_address, *setup.accounts.owner_account.contract_address,
     );
-    verifier_dispatcher.add_claim_topic(alice_claim_666.topic);
-    verifier_dispatcher
-        .add_trusted_issuer(
-            setup.accounts.claim_issuer_account.contract_address, array![alice_claim_666.topic],
-        );
+    for claim in claims_to_add {
+        verifier_dispatcher.add_claim_topic(*claim);
+    }
+
+    for (issuer, claim_topics) in add_issuer_entries {
+        verifier_dispatcher.add_trusted_issuer(*issuer, claim_topics.clone());
+    }
     stop_cheat_caller_address(mock_verifier_address);
 
-    VerifierSetup {
-        identity: IdentityABIDispatcher { contract_address: identity_address },
-        claim_issuer: claim_issuer_dispatcher,
-        mock_verifier: verifier_dispatcher,
-        accounts: setup.accounts,
-        alice_claim_666: alice_claim_666,
-    }
+    verifier_dispatcher
 }
 
-pub fn get_test_claim(setup: @IdentitySetup) -> TestClaim {
-    let identity = *setup.alice_identity.contract_address;
+pub fn get_test_claim(
+    setup: @IdentitySetup, identity: ContractAddress, claim_topic: felt252, claim_data: ByteArray,
+) -> TestClaim {
     let issuer = *setup.claim_issuer.contract_address;
-    let claim_topic = 42_felt252;
-    let claim_data = "0x0042";
     let claim_id = poseidon_hash_span(array![issuer.into(), claim_topic].span());
 
     let mut serialized_claim_to_sign: Array<felt252> = array![];
