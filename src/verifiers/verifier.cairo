@@ -40,40 +40,39 @@ pub mod VerifierComponent {
     #[derive(Drop, starknet::Event)]
     pub struct ClaimTopicAdded {
         #[key]
-        claim_topic: felt252,
+        pub claim_topic: felt252,
     }
 
     #[derive(Drop, starknet::Event)]
     pub struct ClaimTopicRemoved {
         #[key]
-        claim_topic: felt252,
+        pub claim_topic: felt252,
     }
 
     #[derive(Drop, starknet::Event)]
     pub struct TrustedIssuerAdded {
         #[key]
-        trusted_issuer: ContractAddress,
-        claim_topics: Array<felt252>,
+        pub trusted_issuer: ContractAddress,
+        pub claim_topics: Array<felt252>,
     }
 
     #[derive(Drop, starknet::Event)]
     pub struct TrustedIssuerRemoved {
         #[key]
-        trusted_issuer: ContractAddress,
+        pub trusted_issuer: ContractAddress,
     }
 
     #[derive(Drop, starknet::Event)]
     pub struct ClaimTopicsUpdated {
         #[key]
-        trusted_issuer: ContractAddress,
-        claim_topics: Array<felt252>,
+        pub trusted_issuer: ContractAddress,
+        pub claim_topics: Array<felt252>,
     }
 
     mod Errors {
         pub const TOPIC_LENGTH_EXCEEDS_LIMIT: felt252 = 'Topic length should < 15';
         pub const ZERO_ADDRESS: felt252 = 'Invalid argument - zero address';
-        pub const NO_TOPICS: felt252 = 'No topics available';
-        pub const ZERO_TOPICS: felt252 = 'Topics should not be empty';
+        pub const ZERO_TOPICS: felt252 = 'Topics must not be empty';
         pub const ISSUER_ALREADY_EXIST: felt252 = 'Issuer already exist';
         pub const TRUSTED_ISSUERS_EXCEEDS_LIMIT: felt252 = 'Trusted issuer should < 50';
         pub const TRUSTED_ISSUER_DOES_NOT_EXIST: felt252 = 'Trusted issuer does not exist';
