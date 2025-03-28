@@ -16,6 +16,7 @@ pub mod proxy {
 pub mod storage {
     pub mod signature;
     pub mod structs;
+    pub mod vec_ext;
 }
 
 pub mod verifiers {
