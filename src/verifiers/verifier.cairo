@@ -1,3 +1,35 @@
+//! The `VerifierComponent` is designed to manage trusted issuers and claim topics,
+//! facilitating a robust verification process for claims associated with identities. It ensures
+//! that only claims issued by trusted issuers are considered valid. The main offering of this
+//! component is providing a registry for claim topics and trusted issuers, which can be utilized by
+//! external contracts by calling the `verify` function with an identity that must satisfy
+//! constraints such as having valid claims for certain claim topics, or utilized by contracts that
+//! embed this component and use `only_verified_sender` as a guard/access control to enforce
+//! constraints on callers.
+//!
+//! # Features
+//!
+//! - **Trusted Issuer Management**: Implements `ERC3643::ITrustedIssuersRegistry` to allow for the
+//! addition and removal of trusted issuers.
+//!
+//! - **Claim Topic Management**: Implements `ERC3643::IClaimTopicsRegistry`, providing mechanisms
+//! to manage claim topics, such as adding, removing, and updating.
+//!
+//! - **Verification Process**: Implements a verification process that checks if the queried
+//! identity has at least one valid claim issued by an issuer trusted by this registry for each
+//! required claim topic by this component.
+//!
+//! # Components
+//!
+//! - **OwnableComponent**: Implements ownership logic, ensuring that only the owner can perform
+//!   sensitive operations such as adding or removing claims and issuers.
+//!
+//! # Security Notice
+//!
+//! This component has not undergone a formal security audit and should be considered experimental.
+//! Users should exercise caution when implementing or deploying this code in production
+//! environments.
+
 #[starknet::component]
 pub mod VerifierComponent {
     use core::num::traits::Zero;
@@ -37,18 +69,21 @@ pub mod VerifierComponent {
         ClaimTopicsUpdated: ClaimTopicsUpdated,
     }
 
+    /// Emitted when a claim topic has been added to the requirement list.
     #[derive(Drop, starknet::Event)]
     pub struct ClaimTopicAdded {
         #[key]
         claim_topic: felt252,
     }
 
+    /// Emitted when a claim topic has been removed from the requirement list.
     #[derive(Drop, starknet::Event)]
     pub struct ClaimTopicRemoved {
         #[key]
         claim_topic: felt252,
     }
 
+    /// Emitted when an issuer is added to the trusted list.
     #[derive(Drop, starknet::Event)]
     pub struct TrustedIssuerAdded {
         #[key]
@@ -56,12 +91,14 @@ pub mod VerifierComponent {
         pub claim_topics: Span<felt252>,
     }
 
+    /// Emitted when an issuer is removed from the trusted list.
     #[derive(Drop, starknet::Event)]
     pub struct TrustedIssuerRemoved {
         #[key]
         trusted_issuer: ContractAddress,
     }
 
+    /// Emitted when the set of claim topics is changed for a given trusted issuer.
     #[derive(Drop, starknet::Event)]
     pub struct ClaimTopicsUpdated {
         #[key]
@@ -144,6 +181,11 @@ pub mod VerifierComponent {
                 )
         }
 
+        /// Determines if a given claim topic is part of the required claim topics.
+        ///
+        /// # Returns
+        ///
+        /// A `bool` indicating whether the claim topic is required.
         fn is_claim_topic_required(
             self: @ComponentState<TContractState>, claim_topic: felt252,
         ) -> bool {
@@ -159,6 +201,17 @@ pub mod VerifierComponent {
         +HasComponent<TContractState>,
         impl Owner: OwnableComponent::HasComponent<TContractState>,
     > of IClaimTopicsRegistry<ComponentState<TContractState>> {
+        /// Registers a claim topic.
+        ///
+        /// # Arguments
+        ///
+        /// * `claim_topic` - `felt252` representing the claim topic to register.
+        ///
+        /// # Requirements
+        ///
+        /// - Must be called by the owner.
+        /// - Claim topic must not be already registered.
+        /// - Claims stored by this registry must not exceed 15.
         fn add_claim_topic(ref self: ComponentState<TContractState>, claim_topic: felt252) {
             let ownable_comp = get_dep_component!(@self, Owner);
             ownable_comp.assert_only_owner();
@@ -175,6 +228,16 @@ pub mod VerifierComponent {
             self.emit(ClaimTopicAdded { claim_topic });
         }
 
+        /// Removes a claim topic from storage.
+        ///
+        /// # Arguments
+        ///
+        /// * `claim_topic` - `felt252` representing the claim topic to remove.
+        ///
+        /// # Requirements
+        ///
+        /// - Must be called by the owner.
+        /// - Claim topic must be already registered.
         fn remove_claim_topic(ref self: ComponentState<TContractState>, claim_topic: felt252) {
             let ownable_comp = get_dep_component!(@self, Owner);
             ownable_comp.assert_only_owner();
@@ -197,6 +260,7 @@ pub mod VerifierComponent {
             self.emit(ClaimTopicRemoved { claim_topic });
         }
 
+        /// Returns `Span<felt252>` representing the set of claim topics.
         fn get_claim_topics(self: @ComponentState<TContractState>) -> Span<felt252> {
             self.Verifier_required_claim_topics.to_array().span()
         }
@@ -208,6 +272,21 @@ pub mod VerifierComponent {
         +HasComponent<TContractState>,
         impl Owner: OwnableComponent::HasComponent<TContractState>,
     > of ITrustedIssuersRegistry<ComponentState<TContractState>> {
+        /// Adds an issuer to the trusted list.
+        ///
+        /// # Arguments
+        ///
+        /// - `trusted_issuer` - `ContractAddress` representing the issuer to add.
+        /// - `claim_topics` - `Span<felt252>` representing claim topics that the trusted issuer is
+        /// trusted on.
+        ///
+        /// # Requirements
+        ///
+        /// - Only callable by the owner of the contract.
+        /// - `trusted_issuer` must be non-zero.
+        /// - `trusted_issuer` must not be already registered.
+        /// - `claim_topics` length should be greater than zero and less than 16.
+        /// - Issuers trusted by this registry must not exceed 50.
         fn add_trusted_issuer(
             ref self: ComponentState<TContractState>,
             trusted_issuer: ContractAddress,
@@ -246,6 +325,17 @@ pub mod VerifierComponent {
             self.emit(TrustedIssuerAdded { trusted_issuer: trusted_issuer, claim_topics })
         }
 
+        /// Removes an issuer from the trusted list.
+        ///
+        /// # Arguments
+        ///
+        /// - `trusted_issuer` - `ContractAddress` representing the issuer to remove.
+        ///
+        /// # Requirements
+        ///
+        /// - Only callable by the owner of the contract.
+        /// - `trusted_issuer` must be non-zero.
+        /// - `trusted_issuer` must be already registered.
         fn remove_trusted_issuer(
             ref self: ComponentState<TContractState>, trusted_issuer: ContractAddress,
         ) {
@@ -297,6 +387,20 @@ pub mod VerifierComponent {
             self.emit(TrustedIssuerRemoved { trusted_issuer: trusted_issuer });
         }
 
+        /// Updates claim topics that the issuer is trusted on.
+        ///
+        /// # Arguments
+        ///
+        /// - `trusted_issuer` - `ContractAddress` representing the issuer to update claims.
+        /// - `claim_topics` - `Span<felt252>` representing the new set of claim topics that the
+        /// trusted issuer is trusted on.
+        ///
+        /// # Requirements
+        ///
+        /// - Only callable by the owner of the contract.
+        /// - `trusted_issuer` must be non-zero.
+        /// - `trusted_issuer` must be already registered.
+        /// - `claim_topics` length should be greater than zero and less than 16.
         fn update_issuer_claim_topics(
             ref self: ComponentState<TContractState>,
             trusted_issuer: ContractAddress,
@@ -347,22 +451,36 @@ pub mod VerifierComponent {
             self.emit(TrustedIssuerAdded { trusted_issuer: trusted_issuer, claim_topics });
         }
 
+        /// Returns `Span<ContractAddress>` representing the trusted issuers.
         fn get_trusted_issuers(self: @ComponentState<TContractState>) -> Span<ContractAddress> {
             self.Verifier_trusted_issuers.to_array().span()
         }
 
+        /// Determines issuers trusted on a given claim topic.
+        ///
+        /// # Arguments
+        ///
+        /// * `claim_topic` - `felt252` representing the claim topic to query trusted issuers for.
+        ///
+        /// # Returns
+        ///
+        /// Returns `Array<ContractAddress>` representing the trusted issuers for the given claim
+        /// topic.
         fn get_trusted_issuers_for_claim_topic(
             self: @ComponentState<TContractState>, claim_topic: felt252,
         ) -> Span<ContractAddress> {
             self.Verifier_claim_topics_to_trusted_issuers.entry(claim_topic).to_array().span()
         }
 
+        /// Returns `bool` indicating if the `issuer` is trusted or not. True if trusted.
         fn is_trusted_issuer(
             self: @ComponentState<TContractState>, issuer: ContractAddress,
         ) -> bool {
             self.Verifier_trusted_issuer_claim_topics.entry(issuer).len().is_non_zero()
         }
 
+        /// Returns `Span<felt252>` representing claim topics that the `trusted_issuer` is trusted
+        /// on.
         fn get_trusted_issuer_claim_topics(
             self: @ComponentState<TContractState>, trusted_issuer: ContractAddress,
         ) -> Span<felt252> {
@@ -374,6 +492,9 @@ pub mod VerifierComponent {
             claim_topics_storage.to_array().span()
         }
 
+        /// Determines if a given `issuer` has a `claim_topic`.
+        ///
+        /// Returns `true` if the given `issuer` has the `claim_topic`, otherwise returns `false`.
         fn has_claim_topic(
             self: @ComponentState<TContractState>, issuer: ContractAddress, claim_topic: felt252,
         ) -> bool {
@@ -476,6 +597,8 @@ pub mod VerifierComponent {
         +OwnableComponent::HasComponent<TContractState>,
         +Drop<TContractState>,
     > of InternalTrait<TContractState> {
+        /// Panics if called by any account that is not verified. Use this
+        /// to restrict access to certain functions that should be called by verified senders.
         fn only_verified_sender(self: @ComponentState<TContractState>) {
             assert(
                 IVerifier::verify(self, starknet::get_caller_address()),
