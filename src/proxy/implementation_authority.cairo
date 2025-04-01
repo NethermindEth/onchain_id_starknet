@@ -1,3 +1,30 @@
+//! The `IdentityImplementationAuthority` contract serves as a central authority for managing
+//! the implementation of identity contracts within the OnchainID protocol. It provides a secure
+//! mechanism for updating the implementation class hash used by identity contracts, ensuring
+//! that they can be upgraded when necessary.
+//!
+//! # Features
+//!
+//! - **Implementation Management**: Allows for the updating of the implementation class hash,
+//!   ensuring that identity contracts can utilize the latest features and security improvements.
+//!
+//! - **Ownership Control**: Only the owner of the `IdentityImplementationAuthority` can update
+//!   the implementation, providing a layer of security against unauthorized changes.
+//!
+//! - **Upgrade Mechanism**: Facilitates the upgrade of identity contracts to a new implementation,
+//!   ensuring that the current implementation is out-of-date before proceeding with the upgrade.
+//!
+//! # Components
+//!
+//! - **OwnableComponent**: Utilized for managing ownership and access control, ensuring that
+//!   only authorized entities can perform critical operations.
+//!
+//! # Security Notice
+//!
+//! This contract has not undergone a formal security audit and should be considered experimental.
+//! Users should exercise caution when implementing or deploying this code in production
+//! environments.
+
 #[starknet::contract]
 pub mod IdentityImplementationAuthority {
     use core::num::traits::Zero;
@@ -19,6 +46,7 @@ pub mod IdentityImplementationAuthority {
         #[substorage(v0)]
         ownable: OwnableComponent::Storage,
     }
+
     #[event]
     #[derive(Drop, starknet::Event)]
     pub enum Event {
@@ -54,7 +82,7 @@ pub mod IdentityImplementationAuthority {
         ///
         /// # Arguments
         ///
-        /// * `new_class_hash` - A `ClassHash` to represents the new implementation class hash.
+        /// * `new_class_hash` - A `ClassHash` that represents the new implementation class hash.
         ///
         /// # Requirements
         ///
@@ -67,7 +95,7 @@ pub mod IdentityImplementationAuthority {
             self.emit(UpdatedImplementation { new_class_hash });
         }
 
-        /// Upgrades the implementation of caller which should be identity contract.
+        /// Upgrades the implementation of the caller, which should be an identity contract.
         ///
         /// # Requirements
         ///
