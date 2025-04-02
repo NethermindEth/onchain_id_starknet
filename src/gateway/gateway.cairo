@@ -1,3 +1,30 @@
+//! The `Gateway` contract acts as a gateway to the `IdFactory`. This contract must be the owner of
+//! the `IdFactory` to orchestrate `Identity` deployments. By introducing approved signers, it
+//! allows multiple entities to sign deployment messages. Additionally, it implements a signature
+//! revocation mechanism to invalidate deployment messages.
+//!
+//! # Features
+//!
+//! - **Identity Deployment**: Facilitates the deployment of new identity contracts through the
+//! factory.
+//! - **Signer Management**: Allows the approval and revocation of signers who can sign deployment
+//! requests.
+//! - **Signature Management**: Supports the approval and revocation of signatures used in
+//! deployment requests.
+//! - **Ownership Management**: Implements ownership logic to ensure that only the owner can perform
+//! sensitive operations.
+//!
+//! # Components
+//!
+//! - **OwnableComponent**: Implements ownership logic, ensuring that only the owner can perform
+//!   sensitive operations such as approving signers and transferring factory ownership.
+//!
+//! # Security Notice
+//!
+//! This contract has not undergone a formal security audit and should be considered experimental.
+//! Users should exercise caution when implementing or deploying this code in production
+//! environments.
+
 #[starknet::contract]
 pub mod Gateway {
     use core::ecdsa::recover_public_key;
@@ -38,24 +65,28 @@ pub mod Gateway {
         OwnableEvent: OwnableComponent::Event,
     }
 
+    /// Event emitted when a signer is approved to sign deployment requests.
     #[derive(Drop, starknet::Event)]
     pub struct SignerApproved {
         #[key]
         pub signer: felt252,
     }
 
+    /// Event emitted when a signer is revoked.
     #[derive(Drop, starknet::Event)]
     pub struct SignerRevoked {
         #[key]
         pub signer: felt252,
     }
 
+    /// Event emitted when a revoked signature is approved.
     #[derive(Drop, starknet::Event)]
     pub struct SignatureApproved {
         #[key]
         pub signature: Signature,
     }
 
+    /// Event emitted when the signature of a deployment request is revoked.
     #[derive(Drop, starknet::Event)]
     pub struct SignatureRevoked {
         #[key]
@@ -132,13 +163,13 @@ pub mod Gateway {
         /// This function approves a signer to sign identity deployments.
         ///
         /// # Arguments
-        /// * `signer` - A `felt252` representing the public key of signer to approve.
+        /// * `signer` - A `felt252` representing the public key of the signer to approve.
         ///
         /// # Requirements
         ///
-        /// Must be called by gateway owner.
+        /// Must be called by the gateway owner.
         /// `signer` must not be zero.
-        /// `signer` must not be already approved.
+        /// `signer` must not already be approved.
         fn approve_signer(ref self: ContractState, signer: felt252) {
             self.ownable.assert_only_owner();
 
@@ -155,15 +186,15 @@ pub mod Gateway {
             self.emit(SignerApproved { signer });
         }
 
-        /// This function revokes signers privileges to sign identity deployments.
+        /// This function revokes a signer's privileges to sign identity deployments.
         ///
         /// # Arguments
         ///
-        /// * `signer` - A `felt252` representing the public key of signer to revoke.
+        /// * `signer` - A `felt252` representing the public key of the signer to revoke.
         ///
         /// # Requirements
         ///
-        /// Must be called by gateway owner.
+        /// Must be called by the gateway owner.
         /// `signer` must not be zero.
         /// `signer` must be already approved.
         fn revoke_signer(ref self: ContractState, signer: felt252) {
@@ -182,28 +213,28 @@ pub mod Gateway {
             self.emit(SignerRevoked { signer });
         }
 
-        /// This function deploys an identity using a factory using custom `salt` and registers
-        /// `identity_owner` as initial MANAGEMENT key.
+        /// This function deploys an identity using a factory with a custom `salt` and registers
+        /// `identity_owner` as the initial MANAGEMENT key.
         ///
-        /// This operation must be signed by an approved public key. This method allows to deploy an
+        /// This operation must be signed by an approved public key. This method allows deploying an
         /// identity using a custom salt.
         ///
         /// # Arguments
         ///
         /// * `identity_owner` - A `ContractAddress` representing the address to be added as
         /// MANAGEMENT key.
-        /// * `salt` - A `felt252` representing the salt used while deployment.
-        /// * `signature_expiry`- A `u64` representing the block timestamp where the signature will
+        /// * `salt` - A `felt252` representing the salt used during deployment.
+        /// * `signature_expiry` - A `u64` representing the block timestamp when the signature will
         /// expire.
         /// * `signature` - A `Signature` representing the signature of the deployment message.
         ///
         /// # Requirements
         ///
         /// - `identity_owner` must be non-zero.
-        /// - `signature` must be signed by approved signer.
-        /// - `signature` must not expired already.
-        /// - `signature` must not revoked.
-        /// - `salt` must be non-zero and not taken.
+        /// - `signature` must be signed by an approved signer.
+        /// - `signature` must not have expired.
+        /// - `signature` must not be revoked.
+        /// - `salt` must be non-zero and not already taken.
         ///
         /// # Returns
         ///
@@ -249,19 +280,19 @@ pub mod Gateway {
                 .create_identity(identity_owner, salt)
         }
 
-        /// This function deploys an identity using a factory using custom salt and registers
-        /// `management_keys` as initial MANAGEMENT keys.
+        /// This function deploys an identity using a factory with a custom salt and registers
+        /// `management_keys` as the initial MANAGEMENT keys.
         ///
-        /// The operation must be signed by an approved public key. This method allows to deploy an
-        /// identity using a custom salt. `identity_owner` wont be added as MANAGEMENT key, if this
-        /// is desired add poseidon hash of `identity_owner` in `management_keys`.
+        /// The operation must be signed by an approved public key. This method allows deploying an
+        /// identity using a custom salt. `identity_owner` will not be added as a MANAGEMENT key; if
+        /// this is desired, add the poseidon hash of `identity_owner` in `management_keys`.
         ///
         /// # Arguments
         ///
         /// * `identity_owner` - A `ContractAddress` representing the address to be added as
         /// MANAGEMENT key.
-        /// * `salt` - A `felt252` representing the salt used while deployment.
-        /// * `signature_expiry`- A `u64` representing the block timestamp where the signature will
+        /// * `salt` - A `felt252` representing the salt used during deployment.
+        /// * `signature_expiry` - A `u64` representing the block timestamp when the signature will
         /// expire.
         /// * `signature` - A `Signature` representing the signature of the deployment message.
         /// * `management_keys` - A `Span<felt252>` representing the array of keys hash(poseidon
@@ -270,11 +301,11 @@ pub mod Gateway {
         /// # Requirements
         ///
         /// - `identity_owner` must be non-zero.
-        /// - `signature` must be signed by approved signer.
-        /// - `signature` must not expired already.
-        /// - `signature` must not revoked.
-        /// - `management_keys` length should be greater than 0.
-        /// - `salt` must be non-zero and not taken.
+        /// - `signature` must be signed by an approved signer.
+        /// - `signature` must not have expired.
+        /// - `signature` must not be revoked.
+        /// - `management_keys` length must be greater than 0.
+        /// - `salt` must be non-zero and not already taken.
         ///
         /// # Returns
         ///
@@ -323,17 +354,17 @@ pub mod Gateway {
                 .create_identity_with_management_keys(identity_owner, salt, management_keys)
         }
 
-        /// This function deploys an identity using a factory using the identity_owner as salt.
+        /// This function deploys an identity using a factory with the identity_owner as salt.
         ///
         /// # Arguments
         ///
         /// * `identity_owner` - A `ContractAddress` representing the address to be added as
-        /// MANAGEMENT key and will be used as salt value.
+        /// MANAGEMENT key and will be used as the salt value.
         ///
         /// # Requirements
         ///
         /// - `identity_owner` must be non-zero.
-        /// - `identity_owner must not already deployed identity via this function`
+        /// - `identity_owner` must not already have a deployed identity via this function.
         ///
         /// # Returns
         ///
@@ -349,10 +380,10 @@ pub mod Gateway {
                 .create_identity(identity_owner, identity_owner.into())
         }
 
-        /// This function revokes the given signature
+        /// This function revokes the given signature.
         ///
-        /// If the signature is used to sign deployment, revoking the signature will invalidate the
-        /// deployment, thus deployment will be rejected.
+        /// If the signature is used to sign a deployment, revoking the signature will invalidate
+        /// the deployment, thus the deployment will be rejected.
         ///
         /// # Arguments
         ///
@@ -360,8 +391,8 @@ pub mod Gateway {
         ///
         /// # Requirements
         ///
-        /// Must be called by gateway owner.
-        /// - `signature` must not be already revoked.
+        /// Must be called by the gateway owner.
+        /// - `signature` must not already be revoked.
         fn revoke_signature(ref self: ContractState, signature: Signature) {
             self.ownable.assert_only_owner();
             let revoked_signature_storage_path = self.revoked_signatures.entry(signature);
@@ -372,16 +403,17 @@ pub mod Gateway {
             self.emit(SignatureRevoked { signature });
         }
 
-        /// This function removes the given signature from revokes list
+        /// This function removes the given signature from the revoked list.
         ///
         /// # Arguments
         ///
-        /// * `signature` - A `Signature` representing the signature to remove from revoke list.
+        /// * `signature` - A `Signature` representing the signature to remove from the revoked
+        /// list.
         ///
         /// # Requirements
         ///
-        /// Must be called by gateway owner.
-        /// - `signature` must already revoked.
+        /// Must be called by the gateway owner.
+        /// - `signature` must already be revoked.
         fn approve_signature(ref self: ContractState, signature: Signature) {
             self.ownable.assert_only_owner();
             let revoked_signature_storage_path = self.revoked_signatures.entry(signature);
@@ -392,61 +424,61 @@ pub mod Gateway {
             self.emit(SignatureApproved { signature });
         }
 
-        /// This functions transfers the ownership of the IdFactory contract.
+        /// This function transfers the ownership of the IdFactory contract.
         ///
         /// # Arguments
         ///
-        /// * `new_owner` - A `ContractAddress` represent the new owner of the IdFactory.
+        /// * `new_owner` - A `ContractAddress` representing the new owner of the IdFactory.
         ///
         /// # Requirements
         ///
-        /// Must called by gateway owner.
+        /// Must be called by the gateway owner.
         fn transfer_factory_ownership(ref self: ContractState, new_owner: ContractAddress) {
             self.ownable.assert_only_owner();
             IOwnableDispatcher { contract_address: self.id_factory.read() }
                 .transfer_ownership(new_owner);
         }
 
-        /// This function calls the IdFactory contract with the given arbitrary call params.
+        /// This function calls the IdFactory contract with the given arbitrary call parameters.
         ///
         /// # Arguments
         ///
-        /// * `selector` - A `felt252` representing the entry point selector to call
-        /// * `calldata` - A `Span<felt252>` representing the serialized calldata to be passed to
-        /// factory.
+        /// * `selector` - A `felt252` representing the entry point selector to call.
+        /// * `calldata` - A `Span<felt252>` representing the serialized calldata to be passed to
+        /// the factory.
         ///
         /// # Requirements
         ///
-        /// Must be called by gateway owner.
+        /// Must be called by the gateway owner.
         fn call_factory(ref self: ContractState, selector: felt252, calldata: Span<felt252>) {
             self.ownable.assert_only_owner();
             starknet::syscalls::call_contract_syscall(self.id_factory.read(), selector, calldata)
                 .unwrap();
         }
 
-        /// Determines if given signer is approved to signed deployments.
+        /// Determines if the given signer is approved to sign deployments.
         ///
         /// # Returns
         ///
-        /// A `bool` representing whether if signer is approved or not. true if approved.
+        /// A `bool` representing whether the signer is approved or not. Returns true if approved.
         fn is_approved_signer(self: @ContractState, signer: felt252) -> bool {
             self.approved_signers.entry(signer).read()
         }
 
-        /// Determines if given signature is revoked or not.
+        /// Determines if the given signature is revoked or not.
         ///
         /// # Returns
         ///
-        /// A `bool` representing whether the signature is revoked. true if revoked.
+        /// A `bool` representing whether the signature is revoked. Returns true if revoked.
         fn is_revoked_signature(self: @ContractState, signature: Signature) -> bool {
             self.revoked_signatures.entry(signature).read()
         }
 
-        /// Returns identity factory used by this contract.
+        /// Returns the identity factory used by this contract.
         ///
         /// # Returns
         ///
-        /// A `ContractAddress` representing the address of identity factory.
+        /// A `ContractAddress` representing the address of the identity factory.
         fn get_id_factory(self: @ContractState) -> ContractAddress {
             self.id_factory.read()
         }

@@ -1,3 +1,31 @@
+//! The `Identity` contract is a core contract of the OnchainID protocol, providing a robust
+//! framework for identity management on the Starknet blockchain. It introduces an upgradeable
+//! mechanism that allows the contract to evolve over time while maintaining the integrity of
+//! existing identities and claims.
+//!
+//! # Features
+//!
+//! - **Upgrade Mechanism**: Allows the contract to upgrade its implementation while ensuring
+//!   upgrades to implementation stated by the `IdentityImplementationAuthority`. This ensures that
+//!   the contract can adapt to new requirements or improvements without losing existing state.
+//!
+//! - **Identity Management**: Facilitates management and validation of associated claims,
+//! leveraging the underlying `IdentityComponent` for core
+//!   functionalities.
+//!
+//! # Components
+//!
+//! - **IdentityComponent**: Component that implements core logic of Identity including Key and
+//! Claim Management and claim verification.
+//!
+//! - **UpgradeableComponent**: Component that implements upgrade logic.
+//!
+//! # Security Notice
+//!
+//! This contract has not undergone a formal security audit and should be considered experimental.
+//! Users should exercise caution when implementing or deploying this code in production
+//! environments.
+
 #[starknet::contract]
 mod Identity {
     use core::num::traits::Zero;
@@ -51,6 +79,18 @@ mod Identity {
         pub const CALLER_NOT_IMPLEMENTATION_AUTHORITY: felt252 = 'Caller is not Impl. Auth.';
     }
 
+    /// Constructor that initializes this contract.
+    ///
+    /// # Arguments
+    ///
+    /// * `implementation_authority` - `ContractAddress` that represent the implementation authority
+    /// used by this contract.
+    /// * `initial_management_key` - `ContractAddress` representing the initial management key to
+    /// register.
+    ///
+    /// # Requirements
+    ///
+    /// - `implementation_authority` and  `initial_management_key` must be non-zero.
     #[constructor]
     fn constructor(
         ref self: ContractState,
