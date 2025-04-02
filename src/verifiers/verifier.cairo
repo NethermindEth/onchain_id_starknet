@@ -40,13 +40,13 @@ pub mod VerifierComponent {
     #[derive(Drop, starknet::Event)]
     pub struct ClaimTopicAdded {
         #[key]
-        claim_topic: felt252,
+        pub claim_topic: felt252,
     }
 
     #[derive(Drop, starknet::Event)]
     pub struct ClaimTopicRemoved {
         #[key]
-        claim_topic: felt252,
+        pub claim_topic: felt252,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -59,7 +59,7 @@ pub mod VerifierComponent {
     #[derive(Drop, starknet::Event)]
     pub struct TrustedIssuerRemoved {
         #[key]
-        trusted_issuer: ContractAddress,
+        pub trusted_issuer: ContractAddress,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -74,10 +74,10 @@ pub mod VerifierComponent {
         pub const ZERO_ADDRESS: felt252 = 'Invalid argument - zero address';
         pub const ZERO_TOPICS: felt252 = 'Topics should be > 0';
         pub const ISSUER_ALREADY_EXIST: felt252 = 'Issuer already exist';
-        pub const TRUSTED_ISSUERS_EXCEEDS_LIMIT: felt252 = 'Trusted issuers should be < 50';
+        pub const TRUSTED_ISSUERS_EXCEEDS_LIMIT: felt252 = 'Trusted issuers should be < 51';
         pub const TRUSTED_ISSUER_DOES_NOT_EXIST: felt252 = 'Trusted issuer does not exist';
         pub const SENDER_IS_NOT_VERIFIED: felt252 = 'Sender is not verified';
-        pub const CLAIM_TOPIC_ALREADY_EXIST: felt252 = 'Topic exists';
+        pub const CLAIM_TOPIC_ALREADY_EXIST: felt252 = 'Claim topic already exist';
         pub const CLAIM_TOPIC_DOES_NOT_EXIST: felt252 = 'Claim topic does not exist';
     }
 
@@ -89,31 +89,21 @@ pub mod VerifierComponent {
         +Drop<TContractState>,
     > of IVerifier<ComponentState<TContractState>> {
         fn verify(self: @ComponentState<TContractState>, identity: ContractAddress) -> bool {
-            let required_claim_topics_storage = self.Verifier_required_claim_topics.as_path();
-            let claim_topics_to_trusted_issuers_storage = self
+            let identity_dispatcher = IERC735Dispatcher { contract_address: identity };
+            let issuers_for_claim_topic_map = self
                 .Verifier_claim_topics_to_trusted_issuers
                 .as_path();
 
-            if required_claim_topics_storage.len().is_zero() {
-                return true;
-            }
-            let identity_dispatcher = IERC735Dispatcher { contract_address: identity };
-            let mut required_claims_iterator = required_claim_topics_storage
+            let mut required_claims_iterator = self
+                .Verifier_required_claim_topics
                 .into_iter_full_range()
                 .map(|claim_storage| claim_storage.read());
 
             required_claims_iterator
                 .all(
                     |claim_topic| {
-                        let mut claim_topics_to_trusted_issuers_storage =
-                            claim_topics_to_trusted_issuers_storage
-                            .entry(claim_topic);
-
-                        if claim_topics_to_trusted_issuers_storage.len().is_zero() {
-                            return false;
-                        }
-
-                        let mut claim_ids = claim_topics_to_trusted_issuers_storage
+                        let mut claim_ids_iter = issuers_for_claim_topic_map
+                            .entry(claim_topic)
                             .into_iter_full_range()
                             .map(
                                 |claim_issuer| {
@@ -121,10 +111,8 @@ pub mod VerifierComponent {
                                         array![claim_issuer.read().into(), claim_topic].span(),
                                     )
                                 },
-                            )
-                            .collect::<Array<_>>();
+                            );
 
-                        let mut claim_ids_iter = claim_ids.into_iter();
                         claim_ids_iter
                             .any(
                                 |claim_id| {
@@ -166,7 +154,7 @@ pub mod VerifierComponent {
                 self.Verifier_required_claim_topics.len() < TOPIC_LENGTH_LIMIT.into(),
                 Errors::TOPIC_LENGTH_EXCEEDS_LIMIT,
             );
-            let mut iterator = self.Verifier_required_claim_topics.deref().into_iter_full_range();
+            let mut iterator = self.Verifier_required_claim_topics.into_iter_full_range();
 
             let is_topics_exist = iterator.any(|_claim_topic| _claim_topic.read() == claim_topic);
             assert(!is_topics_exist, Errors::CLAIM_TOPIC_ALREADY_EXIST);
@@ -344,7 +332,7 @@ pub mod VerifierComponent {
                 claim_topics_to_trusted_issuers_storage.entry(*claim_topic).push(trusted_issuer);
             }
 
-            self.emit(TrustedIssuerAdded { trusted_issuer: trusted_issuer, claim_topics });
+            self.emit(ClaimTopicsUpdated { trusted_issuer: trusted_issuer, claim_topics });
         }
 
         fn get_trusted_issuers(self: @ComponentState<TContractState>) -> Span<ContractAddress> {
