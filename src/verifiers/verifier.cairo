@@ -24,6 +24,13 @@
 //! - **OwnableComponent**: Implements ownership logic, ensuring that only the owner can perform
 //!   sensitive operations such as adding or removing claims and issuers.
 //!
+//! # Constants
+//!
+//! - `MAXIMUM_ALLOWED_CLAIM_TOPICS`: The maximum number of claim topics that can be registered, set
+//! to 15.
+//! - `MAXIMUM_ALLOWED_ISSUERS`: The maximum number of trusted issuers that can be registered, set
+//! to 50.
+//!
 //! # Security Notice
 //!
 //! This component has not undergone a formal security audit and should be considered experimental.
@@ -48,8 +55,8 @@ pub mod VerifierComponent {
         IClaimTopicsRegistry, ITrustedIssuersRegistry, IVerifier, VerifierABI,
     };
 
-    const TOPIC_LENGTH_LIMIT: u32 = 15;
-    const TRUSTED_ISSERS_LENGTH_LIMIT: u32 = 50;
+    const MAXIMUM_ALLOWED_CLAIM_TOPICS: u32 = 15;
+    const MAXIMUM_ALLOWED_ISSUERS: u32 = 50;
 
     #[storage]
     pub struct Storage {
@@ -125,6 +132,16 @@ pub mod VerifierComponent {
         +OwnableComponent::HasComponent<TContractState>,
         +Drop<TContractState>,
     > of IVerifier<ComponentState<TContractState>> {
+        /// Verifies if the given identity has at least one valid claim issued by an issuer trusted
+        /// by this contract for each required claim topic.
+        ///
+        /// # Arguments
+        ///
+        /// * `identity` - `ContractAddress` representing the identity to verify.
+        ///
+        /// # Returns
+        ///
+        /// Returns `bool` indicating whether the identity is verified (true) or not (false).
         fn verify(self: @ComponentState<TContractState>, identity: ContractAddress) -> bool {
             let required_claim_topics_storage = self.Verifier_required_claim_topics.as_path();
             let claim_topics_to_trusted_issuers_storage = self
@@ -139,6 +156,8 @@ pub mod VerifierComponent {
                 .into_iter_full_range()
                 .map(|claim_storage| claim_storage.read());
 
+            /// For each required claim topic ensures there is at least one valid claim issued by
+            /// trusted issuer.
             required_claims_iterator
                 .all(
                     |claim_topic| {
@@ -161,6 +180,8 @@ pub mod VerifierComponent {
                             )
                             .collect::<Array<_>>();
 
+                        /// Checks if identity has at least one valid claim for topic issued by
+                        /// trusted issuer
                         let mut claim_ids_iter = claim_ids.into_iter();
                         claim_ids_iter
                             .any(
@@ -210,16 +231,16 @@ pub mod VerifierComponent {
         /// # Requirements
         ///
         /// - Must be called by the owner.
-        /// - Claim topic must not be already registered.
-        /// - Claims stored by this registry must not exceed 15.
+        /// - Claim topic must not already be registered.
+        /// - The number of claim topics stored by this registry must not exceed 15.
         fn add_claim_topic(ref self: ComponentState<TContractState>, claim_topic: felt252) {
             let ownable_comp = get_dep_component!(@self, Owner);
             ownable_comp.assert_only_owner();
             assert(
-                self.Verifier_required_claim_topics.len() < TOPIC_LENGTH_LIMIT.into(),
+                self.Verifier_required_claim_topics.len() < MAXIMUM_ALLOWED_CLAIM_TOPICS.into(),
                 Errors::TOPIC_LENGTH_EXCEEDS_LIMIT,
             );
-            let mut iterator = self.Verifier_required_claim_topics.deref().into_iter_full_range();
+            let mut iterator = self.Verifier_required_claim_topics.into_iter_full_range();
 
             let is_topics_exist = iterator.any(|_claim_topic| _claim_topic.read() == claim_topic);
             assert(!is_topics_exist, Errors::CLAIM_TOPIC_ALREADY_EXIST);
@@ -237,7 +258,7 @@ pub mod VerifierComponent {
         /// # Requirements
         ///
         /// - Must be called by the owner.
-        /// - Claim topic must be already registered.
+        /// - Claim topic must already be registered.
         fn remove_claim_topic(ref self: ComponentState<TContractState>, claim_topic: felt252) {
             let ownable_comp = get_dep_component!(@self, Owner);
             ownable_comp.assert_only_owner();
@@ -261,6 +282,10 @@ pub mod VerifierComponent {
         }
 
         /// Returns `Span<felt252>` representing the set of claim topics.
+        ///
+        /// # Returns
+        ///
+        /// A `Span<felt252>` containing the registered claim topics.
         fn get_claim_topics(self: @ComponentState<TContractState>) -> Span<felt252> {
             self.Verifier_required_claim_topics.to_array().span()
         }
@@ -284,9 +309,9 @@ pub mod VerifierComponent {
         ///
         /// - Only callable by the owner of the contract.
         /// - `trusted_issuer` must be non-zero.
-        /// - `trusted_issuer` must not be already registered.
-        /// - `claim_topics` length should be greater than zero and less than 16.
-        /// - Issuers trusted by this registry must not exceed 50.
+        /// - `trusted_issuer` must not already be registered.
+        /// - The length of `claim_topics` should be greater than zero and less than or equal to 15.
+        /// - The number of issuers trusted by this registry must not exceed 50.
         fn add_trusted_issuer(
             ref self: ComponentState<TContractState>,
             trusted_issuer: ContractAddress,
@@ -297,7 +322,10 @@ pub mod VerifierComponent {
 
             assert(!trusted_issuer.is_zero(), Errors::ZERO_ADDRESS);
             assert(claim_topics.len().is_non_zero(), Errors::ZERO_TOPICS);
-            assert(claim_topics.len() <= TOPIC_LENGTH_LIMIT, Errors::TOPIC_LENGTH_EXCEEDS_LIMIT);
+            assert(
+                claim_topics.len() <= MAXIMUM_ALLOWED_CLAIM_TOPICS,
+                Errors::TOPIC_LENGTH_EXCEEDS_LIMIT,
+            );
 
             let trusted_issuer_claim_topics_storage = self
                 .Verifier_trusted_issuer_claim_topics
@@ -309,7 +337,7 @@ pub mod VerifierComponent {
             );
 
             assert(
-                trusted_issuers_storage.len() < TRUSTED_ISSERS_LENGTH_LIMIT.into(),
+                trusted_issuers_storage.len() < MAXIMUM_ALLOWED_ISSUERS.into(),
                 Errors::TRUSTED_ISSUERS_EXCEEDS_LIMIT,
             );
 
@@ -335,7 +363,7 @@ pub mod VerifierComponent {
         ///
         /// - Only callable by the owner of the contract.
         /// - `trusted_issuer` must be non-zero.
-        /// - `trusted_issuer` must be already registered.
+        /// - `trusted_issuer` must already be registered.
         fn remove_trusted_issuer(
             ref self: ComponentState<TContractState>, trusted_issuer: ContractAddress,
         ) {
@@ -399,8 +427,8 @@ pub mod VerifierComponent {
         ///
         /// - Only callable by the owner of the contract.
         /// - `trusted_issuer` must be non-zero.
-        /// - `trusted_issuer` must be already registered.
-        /// - `claim_topics` length should be greater than zero and less than 16.
+        /// - `trusted_issuer` must already be registered.
+        /// - The length of `claim_topics` should be greater than zero and less than or equal to 15.
         fn update_issuer_claim_topics(
             ref self: ComponentState<TContractState>,
             trusted_issuer: ContractAddress,
@@ -410,7 +438,10 @@ pub mod VerifierComponent {
             ownable_comp.assert_only_owner();
             assert(!trusted_issuer.is_zero(), Errors::ZERO_ADDRESS);
             assert(claim_topics.len().is_non_zero(), Errors::ZERO_TOPICS);
-            assert(claim_topics.len() <= TOPIC_LENGTH_LIMIT, Errors::TOPIC_LENGTH_EXCEEDS_LIMIT);
+            assert(
+                claim_topics.len() <= MAXIMUM_ALLOWED_CLAIM_TOPICS,
+                Errors::TOPIC_LENGTH_EXCEEDS_LIMIT,
+            );
 
             let trusted_issuer_claim_topics_storage = self
                 .Verifier_trusted_issuer_claim_topics
@@ -452,6 +483,10 @@ pub mod VerifierComponent {
         }
 
         /// Returns `Span<ContractAddress>` representing the trusted issuers.
+        ///
+        /// # Returns
+        ///
+        /// A `Span<ContractAddress>` containing the registered trusted issuers.
         fn get_trusted_issuers(self: @ComponentState<TContractState>) -> Span<ContractAddress> {
             self.Verifier_trusted_issuers.to_array().span()
         }
@@ -464,7 +499,7 @@ pub mod VerifierComponent {
         ///
         /// # Returns
         ///
-        /// Returns `Array<ContractAddress>` representing the trusted issuers for the given claim
+        /// Returns `Span<ContractAddress>` representing the trusted issuers for the given claim
         /// topic.
         fn get_trusted_issuers_for_claim_topic(
             self: @ComponentState<TContractState>, claim_topic: felt252,
@@ -473,6 +508,14 @@ pub mod VerifierComponent {
         }
 
         /// Returns `bool` indicating if the `issuer` is trusted or not. True if trusted.
+        ///
+        /// # Arguments
+        ///
+        /// * `issuer` - `ContractAddress` representing the issuer to check.
+        ///
+        /// # Returns
+        ///
+        /// Returns `true` if the issuer is trusted, otherwise returns `false`.
         fn is_trusted_issuer(
             self: @ComponentState<TContractState>, issuer: ContractAddress,
         ) -> bool {
@@ -480,6 +523,15 @@ pub mod VerifierComponent {
         }
 
         /// Returns `Span<felt252>` representing claim topics that the `trusted_issuer` is trusted
+        /// on.
+        ///
+        /// # Arguments
+        ///
+        /// * `trusted_issuer` - `ContractAddress` representing the issuer to query.
+        ///
+        /// # Returns
+        ///
+        /// Returns a `Span<felt252>` containing the claim topics that the trusted issuer is trusted
         /// on.
         fn get_trusted_issuer_claim_topics(
             self: @ComponentState<TContractState>, trusted_issuer: ContractAddress,
@@ -493,6 +545,13 @@ pub mod VerifierComponent {
         }
 
         /// Determines if a given `issuer` has a `claim_topic`.
+        ///
+        /// # Arguments
+        ///
+        /// * `issuer` - `ContractAddress` representing the issuer to check.
+        /// * `claim_topic` - `felt252` representing the claim topic to check.
+        ///
+        /// # Returns
         ///
         /// Returns `true` if the given `issuer` has the `claim_topic`, otherwise returns `false`.
         fn has_claim_topic(
