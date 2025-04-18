@@ -1,4 +1,7 @@
-use core::poseidon::poseidon_hash_span;
+use core::hash::{HashStateExTrait, HashStateTrait};
+use core::poseidon::{PoseidonTrait, poseidon_hash_span};
+use openzeppelin_utils::cryptography::snip12::{SNIP12HashSpanImpl, StructHash};
+use starknet::ContractAddress;
 
 #[derive(Copy, Drop, Serde, PartialEq)]
 pub struct StarkSignature {
@@ -55,5 +58,31 @@ pub fn get_public_key_hash(signature: Span<felt252>) -> felt252 {
     match signature {
         Signature::StarkSignature(sig) => poseidon_hash_span(array![sig.public_key.into()].span()),
         _ => panic!("Invalid type"),
+    }
+}
+
+pub const CLAIM_MESSAGE_TYPE_HASH: felt252 = selector!(
+    "\"ClaimMessage\"(
+        \"identity\":\"ContractAddress\",
+        \"topic\":\"felt\",
+        \"data\":\"felt*\",
+    )",
+);
+
+#[derive(Drop, Copy, Serde)]
+pub struct ClaimMessage {
+    pub identity: ContractAddress,
+    pub topic: felt252,
+    pub data: Span<felt252>,
+}
+
+pub impl ClaimMessageStructHash of StructHash<ClaimMessage> {
+    fn hash_struct(self: @ClaimMessage) -> felt252 {
+        PoseidonTrait::new()
+            .update_with(CLAIM_MESSAGE_TYPE_HASH)
+            .update_with(*self.identity)
+            .update_with(*self.topic)
+            .update_with(*self.data)
+            .finalize()
     }
 }

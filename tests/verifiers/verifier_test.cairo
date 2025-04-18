@@ -106,7 +106,7 @@ pub mod verify {
                 test_claim.scheme,
                 test_claim.issuer,
                 test_claim.signature,
-                test_claim.data.clone(),
+                test_claim.data,
                 test_claim.uri.clone(),
             );
         stop_cheat_caller_address(setup.alice_identity.contract_address);

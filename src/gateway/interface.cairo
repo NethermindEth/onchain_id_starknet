@@ -1,3 +1,6 @@
+use core::hash::{HashStateExTrait, HashStateTrait};
+use core::poseidon::PoseidonTrait;
+use openzeppelin_utils::cryptography::snip12::{SNIP12HashSpanImpl, StructHash};
 use starknet::ContractAddress;
 
 #[derive(Copy, Debug, Drop, Serde, Hash)]
@@ -5,6 +8,61 @@ pub struct Signature {
     pub r: felt252,
     pub s: felt252,
     pub y_parity: bool,
+}
+
+#[derive(Copy, Drop, Serde)]
+pub struct Deployment {
+    pub identity_owner: ContractAddress,
+    pub salt: felt252,
+    pub expiration: u64,
+}
+
+pub const DEPLOYMENT_TYPEHASH: felt252 = selector!(
+    "\"Deployment\"(
+        \"identity_owner\":\"ContractAddress\",
+        \"salt\":\"felt\",
+        \"expiration\":\"u128\",
+    )",
+);
+
+pub impl DeploymentStructHash of StructHash<Deployment> {
+    fn hash_struct(self: @Deployment) -> felt252 {
+        PoseidonTrait::new()
+            .update_with(DEPLOYMENT_TYPEHASH)
+            .update_with(*self.identity_owner)
+            .update_with(*self.salt)
+            .update_with(*self.expiration)
+            .finalize()
+    }
+}
+
+#[derive(Copy, Drop, Serde)]
+pub struct DeploymentWithManagementKeys {
+    pub identity_owner: ContractAddress,
+    pub salt: felt252,
+    pub management_keys: Span<felt252>,
+    pub expiration: u64,
+}
+
+pub const DEPLOYMENT_WITH_MANAGEMENT_KEYS_TYPEHASH: felt252 = selector!(
+    "\"DeploymentWithManagementKeys\"(
+        \"identity_owner\":\"ContractAddress\",
+        \"salt\":\"felt\",
+        \"management_keys\":\"felt*\",
+        \"expiration\":\"u128\",
+    )",
+);
+
+pub impl DeploymentWithManagementKeysStructHash of StructHash<DeploymentWithManagementKeys> {
+    fn hash_struct(self: @DeploymentWithManagementKeys) -> felt252 {
+        PoseidonTrait::new()
+            .update_with(DEPLOYMENT_WITH_MANAGEMENT_KEYS_TYPEHASH)
+            .update_with(*self.identity_owner)
+            .update_with(*self.salt)
+            .update_with(*self.management_keys)
+            .update_with(*self.expiration)
+            .finalize()
+    }
 }
 
 #[starknet::interface]

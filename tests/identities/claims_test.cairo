@@ -1,9 +1,11 @@
 pub mod add_claim {
     pub mod when_self_attested_claim {
         use core::poseidon::poseidon_hash_span;
+        use onchain_id_starknet::identity::identity::Identity::SNIP12MetadataImpl;
         use onchain_id_starknet::identity::interface::ierc735;
         use onchain_id_starknet::identity::interface::iidentity::IdentityABIDispatcherTrait;
-        use onchain_id_starknet::storage::signature::{Signature, StarkSignature};
+        use onchain_id_starknet::storage::signature::{ClaimMessage, Signature, StarkSignature};
+        use openzeppelin_utils::cryptography::snip12::OffchainMessageHash;
         use snforge_std::signature::SignerTrait;
         use snforge_std::signature::stark_curve::{
             StarkCurveKeyPairImpl, StarkCurveSignerImpl, StarkCurveVerifierImpl,
@@ -21,15 +23,8 @@ pub mod add_claim {
             let claim_data = [0x0042].span();
             let claim_id = poseidon_hash_span(array![issuer.into(), claim_topic].span());
 
-            let mut serialized_claim_to_sign: Array<felt252> = array![];
-            identity.serialize(ref serialized_claim_to_sign);
-            claim_topic.serialize(ref serialized_claim_to_sign);
-            claim_data.serialize(ref serialized_claim_to_sign);
-
-            let hashed_claim = poseidon_hash_span(
-                array!['Starknet Message', poseidon_hash_span(serialized_claim_to_sign.span())]
-                    .span(),
-            );
+            let hashed_claim = ClaimMessage { identity, topic: claim_topic, data: claim_data }
+                .get_message_hash(issuer);
 
             let (r, s) = (*setup.accounts.alice_key).sign(hashed_claim).unwrap();
             let signature = Signature::StarkSignature(
@@ -93,6 +88,22 @@ pub mod add_claim {
                 );
             stop_cheat_caller_address(setup.alice_identity.contract_address);
 
+            let claim_id = core::poseidon::poseidon_hash_span(
+                [self_attested_claim.issuer.into(), self_attested_claim.topic].span(),
+            );
+            assert_eq!(
+                setup.alice_identity.get_claim(claim_id),
+                (
+                    self_attested_claim.topic,
+                    self_attested_claim.scheme,
+                    self_attested_claim.issuer,
+                    self_attested_claim.signature,
+                    self_attested_claim.data,
+                    self_attested_claim.uri.clone(),
+                ),
+                "Claim not added",
+            );
+
             spy
                 .assert_emitted(
                     @array![
@@ -147,17 +158,22 @@ pub mod add_claim {
             setup.alice_identity.approve(execution_id, true);
             stop_cheat_caller_address(setup.alice_identity.contract_address);
 
-            assert!(
-                setup
-                    .alice_identity
-                    .is_claim_valid(
-                        self_attested_claim.identity,
-                        self_attested_claim.topic,
-                        self_attested_claim.signature,
-                        self_attested_claim.data,
-                    ),
+            let claim_id = core::poseidon::poseidon_hash_span(
+                [self_attested_claim.issuer.into(), self_attested_claim.topic].span(),
+            );
+            assert_eq!(
+                setup.alice_identity.get_claim(claim_id),
+                (
+                    self_attested_claim.topic,
+                    self_attested_claim.scheme,
+                    self_attested_claim.issuer,
+                    self_attested_claim.signature,
+                    self_attested_claim.data,
+                    self_attested_claim.uri.clone(),
+                ),
                 "Claim not added",
             );
+
             spy
                 .assert_emitted(
                     @array![
@@ -202,15 +218,19 @@ pub mod add_claim {
                 );
             stop_cheat_caller_address(setup.alice_identity.contract_address);
 
-            assert!(
-                setup
-                    .alice_identity
-                    .is_claim_valid(
-                        self_attested_claim.identity,
-                        self_attested_claim.topic,
-                        self_attested_claim.signature,
-                        self_attested_claim.data,
-                    ),
+            let claim_id = core::poseidon::poseidon_hash_span(
+                [self_attested_claim.issuer.into(), self_attested_claim.topic].span(),
+            );
+            assert_eq!(
+                setup.alice_identity.get_claim(claim_id),
+                (
+                    self_attested_claim.topic,
+                    self_attested_claim.scheme,
+                    self_attested_claim.issuer,
+                    self_attested_claim.signature,
+                    self_attested_claim.data,
+                    self_attested_claim.uri.clone(),
+                ),
                 "Claim not added",
             );
 
@@ -430,12 +450,7 @@ pub mod add_claim {
                 if let Signature::StarkSignature(actual_sig) =
                     Serde::<Signature>::deserialize(ref test_signature_span)
                     .unwrap() {
-                    assert!(
-                        stored_sig.r == actual_sig.r
-                            && stored_sig.s == actual_sig.s
-                            && stored_sig.public_key == actual_sig.public_key,
-                        "Stored signature does not match",
-                    );
+                    assert!(stored_sig == actual_sig, "Stored signature does not match");
                 }
             }
             assert!(data == test_claim.data, "Stored data does not match");
@@ -489,10 +504,11 @@ pub mod add_claim {
 }
 
 pub mod update_claim {
-    use core::poseidon::poseidon_hash_span;
+    use onchain_id_starknet::identity::identity::Identity::SNIP12MetadataImpl;
     use onchain_id_starknet::identity::interface::ierc735;
     use onchain_id_starknet::identity::interface::iidentity::IdentityABIDispatcherTrait;
-    use onchain_id_starknet::storage::signature::{Signature, StarkSignature};
+    use onchain_id_starknet::storage::signature::{ClaimMessage, Signature, StarkSignature};
+    use openzeppelin_utils::cryptography::snip12::OffchainMessageHash;
     use snforge_std::signature::SignerTrait;
     use snforge_std::signature::stark_curve::{
         StarkCurveKeyPairImpl, StarkCurveSignerImpl, StarkCurveVerifierImpl,
@@ -526,15 +542,10 @@ pub mod update_claim {
 
         /// Second time adding with same topic and issuer should change existing claim
         test_claim.data = [0xBadCafe].span();
-
-        let mut serialized_claim_to_sign: Array<felt252> = array![];
-        test_claim.identity.serialize(ref serialized_claim_to_sign);
-        test_claim.topic.serialize(ref serialized_claim_to_sign);
-        test_claim.data.serialize(ref serialized_claim_to_sign);
-        let hashed_claim = poseidon_hash_span(
-            array!['Starknet Message', poseidon_hash_span(serialized_claim_to_sign.span())].span(),
-        );
-
+        let hashed_claim = ClaimMessage {
+            identity: test_claim.identity, topic: test_claim.topic, data: test_claim.data,
+        }
+            .get_message_hash(test_claim.issuer);
         let (r, s) = setup.accounts.claim_issuer_key.sign(hashed_claim).unwrap();
         let signature = Signature::StarkSignature(
             StarkSignature { r, s, public_key: setup.accounts.claim_issuer_key.public_key },
@@ -717,7 +728,7 @@ pub mod remove_claim {
                 test_claim.scheme,
                 test_claim.issuer,
                 test_claim.signature,
-                test_claim.data.clone(),
+                test_claim.data,
                 test_claim.uri.clone(),
             );
 

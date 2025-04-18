@@ -2,6 +2,8 @@
 pub mod IdentityComponent {
     use core::num::traits::Zero;
     use core::poseidon::poseidon_hash_span;
+    use openzeppelin_utils::cryptography::interface::ISNIP12Metadata;
+    use openzeppelin_utils::cryptography::snip12::{OffchainMessageHash, SNIP12Metadata};
     use starknet::ContractAddress;
     use starknet::storage::{
         IntoIterRange, Map, MutableVecTrait, StoragePathEntry, StoragePointerReadAccess,
@@ -13,7 +15,7 @@ pub mod IdentityComponent {
         IIdentity, IIdentityDispatcher, IIdentityDispatcherTrait,
     };
     use crate::identity::interface::{ierc734, ierc735};
-    use crate::storage::signature::{get_public_key_hash, is_valid_signature};
+    use crate::storage::signature::{ClaimMessage, get_public_key_hash, is_valid_signature};
     use crate::storage::structs::{
         Claim, Execution, ExecutionRequestStatus, KeyDetails, KeyDetailsTrait,
     };
@@ -61,7 +63,7 @@ pub mod IdentityComponent {
 
     #[embeddable_as(IdentityImpl)]
     pub impl Identity<
-        TContractState, +Drop<TContractState>, +HasComponent<TContractState>,
+        TContractState, +Drop<TContractState>, +HasComponent<TContractState>, +SNIP12Metadata,
     > of IIdentity<ComponentState<TContractState>> {
         fn is_claim_valid(
             self: @ComponentState<TContractState>,
@@ -75,17 +77,11 @@ pub mod IdentityComponent {
                 return false;
             }
 
-            // NOTE: How about comply with SNIP12
-            let mut serialized_claim: Array<felt252> = array![];
-            identity.serialize(ref serialized_claim);
-            serialized_claim.append(claim_topic);
-            data.serialize(ref serialized_claim);
-            // TODO: Add prefix
-            let data_hash = poseidon_hash_span(
-                array!['Starknet Message', poseidon_hash_span(serialized_claim.span())].span(),
-            );
+            let message = ClaimMessage { identity, topic: claim_topic, data };
 
-            is_valid_signature(data_hash, signature)
+            let message_hash = message.get_message_hash(starknet::get_contract_address());
+
+            is_valid_signature(message_hash, signature)
         }
     }
 
@@ -288,7 +284,7 @@ pub mod IdentityComponent {
             execution_storage_path.to.write(to);
             execution_storage_path.selector.write(selector);
             let calldata_storage_path = execution_storage_path.calldata.deref();
-            for chunk in calldata.clone() {
+            for chunk in calldata {
                 calldata_storage_path.push(*chunk);
             }
 
@@ -517,6 +513,16 @@ pub mod IdentityComponent {
             self: @ComponentState<TContractState>, topic: felt252,
         ) -> Span<felt252> {
             self.Identity_claims_by_topic.entry(topic).to_array().span()
+        }
+    }
+
+    #[embeddable_as(SNIP12MetadataExternalImpl)]
+    pub impl SNIP12MetadataExternal<
+        TContractState, +HasComponent<TContractState>, impl Metadata: SNIP12Metadata,
+    > of ISNIP12Metadata<ComponentState<TContractState>> {
+        /// Returns the domain name and version used to generate the message hash.
+        fn snip12_metadata(self: @ComponentState<TContractState>) -> (felt252, felt252) {
+            (Metadata::name(), Metadata::version())
         }
     }
 

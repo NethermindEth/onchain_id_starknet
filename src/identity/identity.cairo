@@ -1,8 +1,9 @@
 #[starknet::contract]
-mod Identity {
+pub mod Identity {
     use core::num::traits::Zero;
     use openzeppelin_upgrades::interface::IUpgradeable;
     use openzeppelin_upgrades::upgradeable::UpgradeableComponent;
+    use openzeppelin_utils::cryptography::snip12::SNIP12Metadata;
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
     use starknet::{ClassHash, ContractAddress};
     use crate::identity::component::IdentityComponent;
@@ -25,6 +26,10 @@ mod Identity {
 
     #[abi(embed_v0)]
     impl ERC735Impl = IdentityComponent::ERC735Impl<ContractState>;
+
+    #[abi(embed_v0)]
+    impl SNIP12MetadataExternalImpl =
+        IdentityComponent::SNIP12MetadataExternalImpl<ContractState>;
 
     impl IdentityInternalImpl = IdentityComponent::InternalImpl<ContractState>;
 
@@ -80,6 +85,18 @@ mod Identity {
                 Errors::CALLER_NOT_IMPLEMENTATION_AUTHORITY,
             );
             self.upgradeable.upgrade(new_class_hash);
+        }
+    }
+
+    pub impl SNIP12MetadataImpl of SNIP12Metadata {
+        /// Returns the name of the SNIP-12 metadata.
+        fn name() -> felt252 {
+            'OnchainID'
+        }
+
+        /// Returns the version of the SNIP-12 metadata.
+        fn version() -> felt252 {
+            version::VERSION
         }
     }
 }

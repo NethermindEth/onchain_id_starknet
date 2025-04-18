@@ -2,15 +2,16 @@
 pub mod Gateway {
     use core::ecdsa::recover_public_key;
     use core::num::traits::Zero;
-    use core::poseidon::poseidon_hash_span;
     use openzeppelin_access::ownable::interface::{IOwnableDispatcher, IOwnableDispatcherTrait};
     use openzeppelin_access::ownable::ownable::OwnableComponent;
+    use openzeppelin_utils::cryptography::interface::ISNIP12Metadata;
+    use openzeppelin_utils::cryptography::snip12::{OffchainMessageHash, SNIP12Metadata};
     use starknet::ContractAddress;
     use starknet::storage::{
         Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
     };
     use crate::factory::interface::{IIdFactoryDispatcher, IIdFactoryDispatcherTrait};
-    use crate::gateway::interface::{IGateway, Signature};
+    use crate::gateway::interface::{Deployment, DeploymentWithManagementKeys, IGateway, Signature};
 
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
 
@@ -128,6 +129,26 @@ pub mod Gateway {
     }
 
     #[abi(embed_v0)]
+    pub impl SNIP12MetadataExternal of ISNIP12Metadata<ContractState> {
+        /// Returns the domain name and version used to generate the message hash.
+        fn snip12_metadata(self: @ContractState) -> (felt252, felt252) {
+            (SNIP12MetadataImpl::name(), SNIP12MetadataImpl::version())
+        }
+    }
+
+    pub impl SNIP12MetadataImpl of SNIP12Metadata {
+        /// Returns the name of the SNIP-12 metadata.
+        fn name() -> felt252 {
+            'OnchainID.Gateway'
+        }
+
+        /// Returns the version of the SNIP-12 metadata.
+        fn version() -> felt252 {
+            'v1'
+        }
+    }
+
+    #[abi(embed_v0)]
     impl GatewayImpl of IGateway<ContractState> {
         /// This function approves a signer to sign identity deployments.
         ///
@@ -223,15 +244,11 @@ pub mod Gateway {
                 && signature_expiry < starknet::get_block_timestamp() {
                 Errors::ExpiredSignature();
             }
-            /// TODO: comply with  SNIP12
-            let mut serialized_message: Array<felt252> = array![];
-            let separator: ByteArray = "Authorize ONCHAINID deployment";
-            separator.serialize(ref serialized_message);
-            identity_owner.serialize(ref serialized_message);
-            salt.serialize(ref serialized_message);
-            signature_expiry.serialize(ref serialized_message);
 
-            let message_hash: felt252 = poseidon_hash_span(serialized_message.span());
+            let message = Deployment { identity_owner, salt, expiration: signature_expiry };
+
+            let message_hash: felt252 = message.get_message_hash(starknet::get_contract_address());
+
             let signer: felt252 = recover_public_key(
                 message_hash, signature.r, signature.s, signature.y_parity,
             )
@@ -295,17 +312,12 @@ pub mod Gateway {
                 && signature_expiry < starknet::get_block_timestamp() {
                 Errors::ExpiredSignature();
             }
-            /// TODO: comply with  SNIP12
-            let mut serialized_message: Array<felt252> = array![];
-            let separator: ByteArray = "Authorize ONCHAINID deployment";
-            separator.serialize(ref serialized_message);
-            identity_owner.serialize(ref serialized_message);
-            salt.serialize(ref serialized_message);
-            management_keys.serialize(ref serialized_message);
-            signature_expiry.serialize(ref serialized_message);
 
-            /// TODO: comply with  SNIP12
-            let message_hash: felt252 = poseidon_hash_span(serialized_message.span());
+            let message = DeploymentWithManagementKeys {
+                identity_owner, salt, management_keys, expiration: signature_expiry,
+            };
+
+            let message_hash: felt252 = message.get_message_hash(starknet::get_contract_address());
             let signer: felt252 = recover_public_key(
                 message_hash, signature.r, signature.s, signature.y_parity,
             )

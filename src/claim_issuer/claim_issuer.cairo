@@ -1,5 +1,6 @@
 #[starknet::contract]
 pub mod ClaimIssuer {
+    use openzeppelin_utils::cryptography::snip12::SNIP12Metadata;
     use starknet::ContractAddress;
     use starknet::storage::{
         Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
@@ -10,6 +11,9 @@ pub mod ClaimIssuer {
     use crate::identity::interface::iidentity::IIdentity;
     use crate::version::version;
 
+    #[abi(embed_v0)]
+    impl VersionImpl = version::VersionImpl<ContractState>;
+
     component!(path: IdentityComponent, storage: identity, event: IdentityEvent);
 
     #[abi(embed_v0)]
@@ -17,9 +21,9 @@ pub mod ClaimIssuer {
     #[abi(embed_v0)]
     impl ERC735Impl = IdentityComponent::ERC735Impl<ContractState>;
     impl IdentityInternalImpl = IdentityComponent::InternalImpl<ContractState>;
-
     #[abi(embed_v0)]
-    impl VersionImpl = version::VersionImpl<ContractState>;
+    impl SNIP12MetadataExternalImpl =
+        IdentityComponent::SNIP12MetadataExternalImpl<ContractState>;
 
     #[storage]
     struct Storage {
@@ -89,6 +93,18 @@ pub mod ClaimIssuer {
                 return false;
             }
             self.identity.is_claim_valid(identity, claim_topic, signature, data)
+        }
+    }
+
+    pub impl SNIP12MetadataImpl of SNIP12Metadata {
+        /// Returns the name of the SNIP-12 metadata.
+        fn name() -> felt252 {
+            'OnchainID'
+        }
+
+        /// Returns the version of the SNIP-12 metadata.
+        fn version() -> felt252 {
+            version::VERSION
         }
     }
 

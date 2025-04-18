@@ -3,13 +3,15 @@ use onchain_id_starknet::claim_issuer::interface::{
     ClaimIssuerABIDispatcher, ClaimIssuerABIDispatcherTrait,
 };
 use onchain_id_starknet::factory::interface::{IIdFactoryDispatcher, IIdFactoryDispatcherTrait};
+use onchain_id_starknet::identity::identity::Identity::SNIP12MetadataImpl;
 use onchain_id_starknet::identity::interface::iidentity::{
     IdentityABIDispatcher, IdentityABIDispatcherTrait,
 };
 use onchain_id_starknet::proxy::interface::IIdentityImplementationAuthorityDispatcher;
-use onchain_id_starknet::storage::signature::{Signature, StarkSignature};
+use onchain_id_starknet::storage::signature::{ClaimMessage, Signature, StarkSignature};
 use onchain_id_starknet::verifiers::interface::{VerifierABIDispatcher, VerifierABIDispatcherTrait};
 use openzeppelin_account::interface::AccountABIDispatcher;
+use openzeppelin_utils::cryptography::snip12::OffchainMessageHash;
 use snforge_std::signature::stark_curve::{
     StarkCurveKeyPairImpl, StarkCurveSignerImpl, StarkCurveVerifierImpl,
 };
@@ -255,15 +257,10 @@ pub fn setup_identity() -> IdentitySetup {
     let claim_data = [0x00666].span();
     let claim_id = poseidon_hash_span(array![issuer.into(), claim_topic].span());
 
-    let mut serialized_claim_to_sign: Array<felt252> = array![];
-    alice_identity.contract_address.serialize(ref serialized_claim_to_sign);
-    claim_topic.serialize(ref serialized_claim_to_sign);
-    claim_data.serialize(ref serialized_claim_to_sign);
-
-    let hashed_claim = poseidon_hash_span(
-        array!['Starknet Message', poseidon_hash_span(serialized_claim_to_sign.span())].span(),
-    );
-
+    let mut claim_message = ClaimMessage {
+        identity: alice_identity.contract_address, topic: claim_topic, data: claim_data,
+    };
+    let hashed_claim = claim_message.get_message_hash(issuer);
     let (r, s) = factory_setup.accounts.claim_issuer_key.sign(hashed_claim).unwrap();
 
     let alice_claim_666_signature = Signature::StarkSignature(
@@ -364,14 +361,8 @@ pub fn get_test_claim(
     let issuer = *setup.claim_issuer.contract_address;
     let claim_id = poseidon_hash_span(array![issuer.into(), claim_topic].span());
 
-    let mut serialized_claim_to_sign: Array<felt252> = array![];
-    identity.serialize(ref serialized_claim_to_sign);
-    claim_topic.serialize(ref serialized_claim_to_sign);
-    claim_data.serialize(ref serialized_claim_to_sign);
-
-    let hashed_claim = poseidon_hash_span(
-        array!['Starknet Message', poseidon_hash_span(serialized_claim_to_sign.span())].span(),
-    );
+    let mut claim_message = ClaimMessage { identity, topic: claim_topic, data: claim_data };
+    let hashed_claim = claim_message.get_message_hash(issuer);
 
     let (r, s) = (*setup.accounts.claim_issuer_key).sign(hashed_claim).unwrap();
     let signature = Signature::StarkSignature(

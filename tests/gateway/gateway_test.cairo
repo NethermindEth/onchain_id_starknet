@@ -246,10 +246,12 @@ pub mod deploy_identity_with_salt {
     use core::poseidon::poseidon_hash_span;
     use onchain_id_starknet::factory::factory::IdFactory;
     use onchain_id_starknet::factory::interface::IIdFactoryDispatcherTrait;
-    use onchain_id_starknet::gateway::interface::{IGatewayDispatcherTrait, Signature};
+    use onchain_id_starknet::gateway::gateway::Gateway::SNIP12MetadataImpl;
+    use onchain_id_starknet::gateway::interface::{Deployment, IGatewayDispatcherTrait, Signature};
     use onchain_id_starknet::identity::interface::iidentity::{
         IdentityABIDispatcher, IdentityABIDispatcherTrait,
     };
+    use openzeppelin_utils::cryptography::snip12::OffchainMessageHash;
     use snforge_std::signature::SignerTrait;
     use snforge_std::signature::stark_curve::{StarkCurveKeyPairImpl, StarkCurveSignerImpl};
     use snforge_std::{
@@ -300,18 +302,17 @@ pub mod deploy_identity_with_salt {
         let factory_setup = setup_factory();
         let carol_pub_key = factory_setup.accounts.carol_key.public_key;
         let setup = setup_gateway(factory_setup, array![carol_pub_key].span());
-        let mut serialized_message: Array<felt252> = array![];
-        let separator: ByteArray = "Authorize ONCHAINID deployment";
-        separator.serialize(ref serialized_message);
-        setup.accounts.alice_account.contract_address.serialize(ref serialized_message);
-        let salt = 'salt_to_use';
-        salt.serialize(ref serialized_message);
-        let signature_expiry: u64 = starknet::get_block_timestamp() + super::YEAR;
-        signature_expiry.serialize(ref serialized_message);
-        let hashed_message = poseidon_hash_span(serialized_message.span());
-        let (r, s) = setup.accounts.david_key.sign(hashed_message).unwrap();
 
-        let y_parity = core::ecdsa::recover_public_key(hashed_message, r, s, true)
+        let salt = 'salt_to_use';
+        let identity_owner = setup.accounts.alice_account.contract_address;
+        let expiration: u64 = starknet::get_block_timestamp() + super::YEAR;
+        let message = Deployment { identity_owner, salt, expiration };
+
+        let message_hash = message.get_message_hash(setup.gateway.contract_address);
+
+        let (r, s) = setup.accounts.david_key.sign(message_hash).unwrap();
+
+        let y_parity = core::ecdsa::recover_public_key(message_hash, r, s, true)
             .unwrap() == setup
             .accounts
             .david_key
@@ -322,7 +323,7 @@ pub mod deploy_identity_with_salt {
             .deploy_identity_with_salt(
                 setup.accounts.alice_account.contract_address,
                 salt,
-                signature_expiry,
+                expiration,
                 Signature { r, s, y_parity },
             );
     }
@@ -333,18 +334,16 @@ pub mod deploy_identity_with_salt {
         let carol_pub_key = factory_setup.accounts.carol_key.public_key;
         let setup = setup_gateway(factory_setup, array![carol_pub_key].span());
 
-        let mut serialized_message: Array<felt252> = array![];
-        let separator: ByteArray = "Authorize ONCHAINID deployment";
-        separator.serialize(ref serialized_message);
-        setup.accounts.alice_account.contract_address.serialize(ref serialized_message);
         let salt = 'salt_to_use';
-        salt.serialize(ref serialized_message);
-        let signature_expiry: u64 = starknet::get_block_timestamp() + super::YEAR;
-        signature_expiry.serialize(ref serialized_message);
-        let hashed_message = poseidon_hash_span(serialized_message.span());
-        let (r, s) = setup.accounts.carol_key.sign(hashed_message).unwrap();
+        let identity_owner = setup.accounts.alice_account.contract_address;
+        let expiration: u64 = starknet::get_block_timestamp() + super::YEAR;
+        let message = Deployment { identity_owner, salt, expiration };
 
-        let y_parity = core::ecdsa::recover_public_key(hashed_message, r, s, true)
+        let message_hash = message.get_message_hash(setup.gateway.contract_address);
+
+        let (r, s) = setup.accounts.carol_key.sign(message_hash).unwrap();
+
+        let y_parity = core::ecdsa::recover_public_key(message_hash, r, s, true)
             .unwrap() == setup
             .accounts
             .carol_key
@@ -357,7 +356,7 @@ pub mod deploy_identity_with_salt {
             .deploy_identity_with_salt(
                 setup.accounts.alice_account.contract_address,
                 salt,
-                signature_expiry,
+                expiration,
                 Signature { r, s, y_parity },
             );
         let identity_address = setup
@@ -403,18 +402,16 @@ pub mod deploy_identity_with_salt {
         let carol_pub_key = factory_setup.accounts.carol_key.public_key;
         let setup = setup_gateway(factory_setup, array![carol_pub_key].span());
 
-        let mut serialized_message: Array<felt252> = array![];
-        let separator: ByteArray = "Authorize ONCHAINID deployment";
-        separator.serialize(ref serialized_message);
-        setup.accounts.alice_account.contract_address.serialize(ref serialized_message);
         let salt = 'salt_to_use';
-        salt.serialize(ref serialized_message);
-        let signature_expiry: u64 = Zero::zero();
-        signature_expiry.serialize(ref serialized_message);
-        let hashed_message = poseidon_hash_span(serialized_message.span());
-        let (r, s) = setup.accounts.carol_key.sign(hashed_message).unwrap();
+        let identity_owner = setup.accounts.alice_account.contract_address;
+        let expiration: u64 = Zero::zero();
+        let message = Deployment { identity_owner, salt, expiration };
 
-        let y_parity = core::ecdsa::recover_public_key(hashed_message, r, s, true)
+        let message_hash = message.get_message_hash(setup.gateway.contract_address);
+
+        let (r, s) = setup.accounts.carol_key.sign(message_hash).unwrap();
+
+        let y_parity = core::ecdsa::recover_public_key(message_hash, r, s, true)
             .unwrap() == setup
             .accounts
             .carol_key
@@ -427,7 +424,7 @@ pub mod deploy_identity_with_salt {
             .deploy_identity_with_salt(
                 setup.accounts.alice_account.contract_address,
                 salt,
-                signature_expiry,
+                expiration,
                 Signature { r, s, y_parity },
             );
         let identity_address = setup
@@ -474,18 +471,15 @@ pub mod deploy_identity_with_salt {
         let carol_pub_key = factory_setup.accounts.carol_key.public_key;
         let setup = setup_gateway(factory_setup, array![carol_pub_key].span());
 
-        let mut serialized_message: Array<felt252> = array![];
-        let separator: ByteArray = "Authorize ONCHAINID deployment";
-        separator.serialize(ref serialized_message);
-        setup.accounts.alice_account.contract_address.serialize(ref serialized_message);
         let salt = 'salt_to_use';
-        salt.serialize(ref serialized_message);
-        let signature_expiry: u64 = starknet::get_block_timestamp() + super::YEAR;
-        signature_expiry.serialize(ref serialized_message);
-        let hashed_message = poseidon_hash_span(serialized_message.span());
-        let (r, s) = setup.accounts.carol_key.sign(hashed_message).unwrap();
+        let identity_owner = setup.accounts.alice_account.contract_address;
+        let expiration: u64 = starknet::get_block_timestamp() + super::YEAR;
+        let message = Deployment { identity_owner, salt, expiration };
 
-        let y_parity = core::ecdsa::recover_public_key(hashed_message, r, s, true)
+        let message_hash = message.get_message_hash(setup.gateway.contract_address);
+        let (r, s) = setup.accounts.carol_key.sign(message_hash).unwrap();
+
+        let y_parity = core::ecdsa::recover_public_key(message_hash, r, s, true)
             .unwrap() == setup
             .accounts
             .carol_key
@@ -499,7 +493,7 @@ pub mod deploy_identity_with_salt {
         setup
             .gateway
             .deploy_identity_with_salt(
-                setup.accounts.alice_account.contract_address, salt, signature_expiry, signature,
+                setup.accounts.alice_account.contract_address, salt, expiration, signature,
             );
     }
 
@@ -512,18 +506,15 @@ pub mod deploy_identity_with_salt {
         let carol_pub_key = factory_setup.accounts.carol_key.public_key;
         let setup = setup_gateway(factory_setup, array![carol_pub_key].span());
 
-        let mut serialized_message: Array<felt252> = array![];
-        let separator: ByteArray = "Authorize ONCHAINID deployment";
-        separator.serialize(ref serialized_message);
-        setup.accounts.alice_account.contract_address.serialize(ref serialized_message);
         let salt = 'salt_to_use';
-        salt.serialize(ref serialized_message);
-        let signature_expiry: u64 = starknet::get_block_timestamp() + super::YEAR;
-        signature_expiry.serialize(ref serialized_message);
-        let hashed_message = poseidon_hash_span(serialized_message.span());
-        let (r, s) = setup.accounts.carol_key.sign(hashed_message).unwrap();
+        let identity_owner = setup.accounts.alice_account.contract_address;
+        let expiration: u64 = starknet::get_block_timestamp() + super::YEAR;
+        let message = Deployment { identity_owner, salt, expiration };
 
-        let y_parity = core::ecdsa::recover_public_key(hashed_message, r, s, true)
+        let message_hash = message.get_message_hash(setup.gateway.contract_address);
+        let (r, s) = setup.accounts.carol_key.sign(message_hash).unwrap();
+
+        let y_parity = core::ecdsa::recover_public_key(message_hash, r, s, true)
             .unwrap() == setup
             .accounts
             .carol_key
@@ -534,11 +525,11 @@ pub mod deploy_identity_with_salt {
         );
         setup.gateway.revoke_signature(signature);
         stop_cheat_caller_address(setup.gateway.contract_address);
-        start_cheat_block_timestamp_global(signature_expiry + 1);
+        start_cheat_block_timestamp_global(expiration + 1);
         setup
             .gateway
             .deploy_identity_with_salt(
-                setup.accounts.alice_account.contract_address, salt, signature_expiry, signature,
+                setup.accounts.alice_account.contract_address, salt, expiration, signature,
             );
         stop_cheat_block_timestamp_global();
     }
@@ -549,10 +540,14 @@ pub mod deploy_identity_with_salt_and_management_keys {
     use core::poseidon::poseidon_hash_span;
     use onchain_id_starknet::factory::factory::IdFactory;
     use onchain_id_starknet::factory::interface::IIdFactoryDispatcherTrait;
-    use onchain_id_starknet::gateway::interface::{IGatewayDispatcherTrait, Signature};
+    use onchain_id_starknet::gateway::gateway::Gateway::SNIP12MetadataImpl;
+    use onchain_id_starknet::gateway::interface::{
+        DeploymentWithManagementKeys, IGatewayDispatcherTrait, Signature,
+    };
     use onchain_id_starknet::identity::interface::iidentity::{
         IdentityABIDispatcher, IdentityABIDispatcherTrait,
     };
+    use openzeppelin_utils::cryptography::snip12::OffchainMessageHash;
     use snforge_std::signature::SignerTrait;
     use snforge_std::signature::stark_curve::{StarkCurveKeyPairImpl, StarkCurveSignerImpl};
     use snforge_std::{
@@ -605,23 +600,23 @@ pub mod deploy_identity_with_salt_and_management_keys {
         let factory_setup = setup_factory();
         let carol_pub_key = factory_setup.accounts.carol_key.public_key;
         let setup = setup_gateway(factory_setup, array![carol_pub_key].span());
-        let mut serialized_message: Array<felt252> = array![];
-        let separator: ByteArray = "Authorize ONCHAINID deployment";
-        separator.serialize(ref serialized_message);
-        setup.accounts.alice_account.contract_address.serialize(ref serialized_message);
-        let salt = 'salt_to_use';
-        salt.serialize(ref serialized_message);
 
+        let salt = 'salt_to_use';
+        let identity_owner = setup.accounts.alice_account.contract_address;
+        let expiration: u64 = starknet::get_block_timestamp() + super::YEAR;
         let management_keys = array![
             poseidon_hash_span(array![setup.accounts.bob_account.contract_address.into()].span()),
-        ];
-        management_keys.serialize(ref serialized_message);
-        let signature_expiry: u64 = starknet::get_block_timestamp() + super::YEAR;
-        signature_expiry.serialize(ref serialized_message);
-        let hashed_message = poseidon_hash_span(serialized_message.span());
-        let (r, s) = setup.accounts.david_key.sign(hashed_message).unwrap();
+        ]
+            .span();
+        let message = DeploymentWithManagementKeys {
+            identity_owner, salt, management_keys, expiration,
+        };
 
-        let y_parity = core::ecdsa::recover_public_key(hashed_message, r, s, true)
+        let message_hash = message.get_message_hash(setup.gateway.contract_address);
+
+        let (r, s) = setup.accounts.david_key.sign(message_hash).unwrap();
+
+        let y_parity = core::ecdsa::recover_public_key(message_hash, r, s, true)
             .unwrap() == setup
             .accounts
             .bob_key
@@ -632,8 +627,8 @@ pub mod deploy_identity_with_salt_and_management_keys {
             .deploy_identity_with_salt_and_management_keys(
                 setup.accounts.alice_account.contract_address,
                 salt,
-                management_keys.span(),
-                signature_expiry,
+                management_keys,
+                expiration,
                 Signature { r, s, y_parity },
             );
     }
@@ -643,23 +638,21 @@ pub mod deploy_identity_with_salt_and_management_keys {
         let factory_setup = setup_factory();
         let carol_pub_key = factory_setup.accounts.carol_key.public_key;
         let setup = setup_gateway(factory_setup, array![carol_pub_key].span());
-        let mut serialized_message: Array<felt252> = array![];
-        let separator: ByteArray = "Authorize ONCHAINID deployment";
-        separator.serialize(ref serialized_message);
-        setup.accounts.alice_account.contract_address.serialize(ref serialized_message);
         let salt = 'salt_to_use';
-        salt.serialize(ref serialized_message);
-
+        let identity_owner = setup.accounts.alice_account.contract_address;
+        let expiration: u64 = starknet::get_block_timestamp() + super::YEAR;
         let management_keys = array![
             poseidon_hash_span(array![setup.accounts.bob_account.contract_address.into()].span()),
-        ];
-        management_keys.serialize(ref serialized_message);
-        let signature_expiry: u64 = starknet::get_block_timestamp() + super::YEAR;
-        signature_expiry.serialize(ref serialized_message);
-        let hashed_message = poseidon_hash_span(serialized_message.span());
-        let (r, s) = setup.accounts.carol_key.sign(hashed_message).unwrap();
+        ]
+            .span();
+        let message = DeploymentWithManagementKeys {
+            identity_owner, salt, management_keys, expiration,
+        };
 
-        let y_parity = core::ecdsa::recover_public_key(hashed_message, r, s, true)
+        let message_hash = message.get_message_hash(setup.gateway.contract_address);
+        let (r, s) = setup.accounts.carol_key.sign(message_hash).unwrap();
+
+        let y_parity = core::ecdsa::recover_public_key(message_hash, r, s, true)
             .unwrap() == setup
             .accounts
             .carol_key
@@ -672,8 +665,8 @@ pub mod deploy_identity_with_salt_and_management_keys {
             .deploy_identity_with_salt_and_management_keys(
                 setup.accounts.alice_account.contract_address,
                 salt,
-                management_keys.span(),
-                signature_expiry,
+                management_keys,
+                expiration,
                 Signature { r, s, y_parity },
             );
 
@@ -693,7 +686,7 @@ pub mod deploy_identity_with_salt_and_management_keys {
                     ),
                     1,
                 ),
-            "key havent registered in deployment",
+            "key registered in deployment",
         );
 
         assert!(
@@ -734,23 +727,21 @@ pub mod deploy_identity_with_salt_and_management_keys {
         let factory_setup = setup_factory();
         let carol_pub_key = factory_setup.accounts.carol_key.public_key;
         let setup = setup_gateway(factory_setup, array![carol_pub_key].span());
-        let mut serialized_message: Array<felt252> = array![];
-        let separator: ByteArray = "Authorize ONCHAINID deployment";
-        separator.serialize(ref serialized_message);
-        setup.accounts.alice_account.contract_address.serialize(ref serialized_message);
         let salt = 'salt_to_use';
-        salt.serialize(ref serialized_message);
-
+        let identity_owner = setup.accounts.alice_account.contract_address;
+        let expiration: u64 = Zero::zero();
         let management_keys = array![
             poseidon_hash_span(array![setup.accounts.bob_account.contract_address.into()].span()),
-        ];
-        management_keys.serialize(ref serialized_message);
-        let signature_expiry: u64 = Zero::zero();
-        signature_expiry.serialize(ref serialized_message);
-        let hashed_message = poseidon_hash_span(serialized_message.span());
-        let (r, s) = setup.accounts.carol_key.sign(hashed_message).unwrap();
+        ]
+            .span();
+        let message = DeploymentWithManagementKeys {
+            identity_owner, salt, management_keys, expiration,
+        };
 
-        let y_parity = core::ecdsa::recover_public_key(hashed_message, r, s, true)
+        let message_hash = message.get_message_hash(setup.gateway.contract_address);
+        let (r, s) = setup.accounts.carol_key.sign(message_hash).unwrap();
+
+        let y_parity = core::ecdsa::recover_public_key(message_hash, r, s, true)
             .unwrap() == setup
             .accounts
             .carol_key
@@ -763,8 +754,8 @@ pub mod deploy_identity_with_salt_and_management_keys {
             .deploy_identity_with_salt_and_management_keys(
                 setup.accounts.alice_account.contract_address,
                 salt,
-                management_keys.span(),
-                signature_expiry,
+                management_keys,
+                expiration,
                 Signature { r, s, y_parity },
             );
 
@@ -784,7 +775,7 @@ pub mod deploy_identity_with_salt_and_management_keys {
                     ),
                     1,
                 ),
-            "key havent registered in deployment",
+            "key registered in deployment",
         );
 
         assert!(
@@ -826,23 +817,20 @@ pub mod deploy_identity_with_salt_and_management_keys {
         let factory_setup = setup_factory();
         let carol_pub_key = factory_setup.accounts.carol_key.public_key;
         let setup = setup_gateway(factory_setup, array![carol_pub_key].span());
-        let mut serialized_message: Array<felt252> = array![];
-        let separator: ByteArray = "Authorize ONCHAINID deployment";
-        separator.serialize(ref serialized_message);
-        setup.accounts.alice_account.contract_address.serialize(ref serialized_message);
         let salt = 'salt_to_use';
-        salt.serialize(ref serialized_message);
-
+        let identity_owner = setup.accounts.alice_account.contract_address;
+        let expiration: u64 = starknet::get_block_timestamp() + super::YEAR;
         let management_keys = array![
             poseidon_hash_span(array![setup.accounts.bob_account.contract_address.into()].span()),
-        ];
-        management_keys.serialize(ref serialized_message);
-        let signature_expiry: u64 = starknet::get_block_timestamp() + super::YEAR;
-        signature_expiry.serialize(ref serialized_message);
+        ]
+            .span();
+        let message = DeploymentWithManagementKeys {
+            identity_owner, salt, management_keys, expiration,
+        };
 
-        let hashed_message = poseidon_hash_span(serialized_message.span());
-        let (r, s) = setup.accounts.carol_key.sign(hashed_message).unwrap();
-        let y_parity = core::ecdsa::recover_public_key(hashed_message, r, s, true)
+        let message_hash = message.get_message_hash(setup.gateway.contract_address);
+        let (r, s) = setup.accounts.carol_key.sign(message_hash).unwrap();
+        let y_parity = core::ecdsa::recover_public_key(message_hash, r, s, true)
             .unwrap() == setup
             .accounts
             .carol_key
@@ -861,8 +849,8 @@ pub mod deploy_identity_with_salt_and_management_keys {
             .deploy_identity_with_salt_and_management_keys(
                 setup.accounts.alice_account.contract_address,
                 salt,
-                management_keys.span(),
-                signature_expiry,
+                management_keys,
+                expiration,
                 signature,
             );
     }
@@ -875,36 +863,34 @@ pub mod deploy_identity_with_salt_and_management_keys {
         let factory_setup = setup_factory();
         let carol_pub_key = factory_setup.accounts.carol_key.public_key;
         let setup = setup_gateway(factory_setup, array![carol_pub_key].span());
-        let mut serialized_message: Array<felt252> = array![];
-        let separator: ByteArray = "Authorize ONCHAINID deployment";
-        separator.serialize(ref serialized_message);
-        setup.accounts.alice_account.contract_address.serialize(ref serialized_message);
         let salt = 'salt_to_use';
-        salt.serialize(ref serialized_message);
-
+        let identity_owner = setup.accounts.alice_account.contract_address;
+        let expiration: u64 = starknet::get_block_timestamp() + super::YEAR;
         let management_keys = array![
             poseidon_hash_span(array![setup.accounts.bob_account.contract_address.into()].span()),
-        ];
-        management_keys.serialize(ref serialized_message);
-        let signature_expiry: u64 = starknet::get_block_timestamp() + super::YEAR;
-        signature_expiry.serialize(ref serialized_message);
-        let hashed_message = poseidon_hash_span(serialized_message.span());
-        let (r, s) = setup.accounts.carol_key.sign(hashed_message).unwrap();
+        ]
+            .span();
+        let message = DeploymentWithManagementKeys {
+            identity_owner, salt, management_keys, expiration,
+        };
 
-        let y_parity = core::ecdsa::recover_public_key(hashed_message, r, s, true)
+        let message_hash = message.get_message_hash(setup.gateway.contract_address);
+        let (r, s) = setup.accounts.carol_key.sign(message_hash).unwrap();
+
+        let y_parity = core::ecdsa::recover_public_key(message_hash, r, s, true)
             .unwrap() == setup
             .accounts
             .carol_key
             .public_key;
 
-        start_cheat_block_timestamp_global(signature_expiry + 1);
+        start_cheat_block_timestamp_global(expiration + 1);
         setup
             .gateway
             .deploy_identity_with_salt_and_management_keys(
                 setup.accounts.alice_account.contract_address,
                 salt,
-                management_keys.span(),
-                signature_expiry,
+                management_keys,
+                expiration,
                 Signature { r, s, y_parity },
             );
         stop_cheat_block_timestamp_global();
@@ -1127,9 +1113,10 @@ pub mod transfer_factory_ownership {
 }
 
 pub mod revoke_signature {
-    use core::poseidon::poseidon_hash_span;
     use onchain_id_starknet::gateway::gateway::Gateway;
-    use onchain_id_starknet::gateway::interface::{IGatewayDispatcherTrait, Signature};
+    use onchain_id_starknet::gateway::gateway::Gateway::SNIP12MetadataImpl;
+    use onchain_id_starknet::gateway::interface::{Deployment, IGatewayDispatcherTrait, Signature};
+    use openzeppelin_utils::cryptography::snip12::OffchainMessageHash;
     use snforge_std::signature::SignerTrait;
     use snforge_std::signature::stark_curve::{StarkCurveKeyPairImpl, StarkCurveSignerImpl};
     use snforge_std::{
@@ -1144,17 +1131,14 @@ pub mod revoke_signature {
         let carol_pub_key = factory_setup.accounts.carol_key.public_key;
         let setup = setup_gateway(factory_setup, array![carol_pub_key].span());
 
-        let mut serialized_message: Array<felt252> = array![];
-        let separator: ByteArray = "Authorize ONCHAINID deployment";
-        separator.serialize(ref serialized_message);
-        setup.accounts.alice_account.contract_address.serialize(ref serialized_message);
         let salt = 'salt_to_use';
-        salt.serialize(ref serialized_message);
-        let signature_expiry: u64 = starknet::get_block_timestamp() + super::YEAR;
-        signature_expiry.serialize(ref serialized_message);
-        let hashed_message = poseidon_hash_span(serialized_message.span());
-        let (r, s) = setup.accounts.carol_key.sign(hashed_message).unwrap();
-        let y_parity = core::ecdsa::recover_public_key(hashed_message, r, s, true)
+        let identity_owner = setup.accounts.alice_account.contract_address;
+        let expiration: u64 = starknet::get_block_timestamp() + super::YEAR;
+        let message = Deployment { identity_owner, salt, expiration };
+
+        let message_hash = message.get_message_hash(setup.gateway.contract_address);
+        let (r, s) = setup.accounts.carol_key.sign(message_hash).unwrap();
+        let y_parity = core::ecdsa::recover_public_key(message_hash, r, s, true)
             .unwrap() == setup
             .accounts
             .carol_key
@@ -1171,18 +1155,14 @@ pub mod revoke_signature {
         let factory_setup = setup_factory();
         let carol_pub_key = factory_setup.accounts.carol_key.public_key;
         let setup = setup_gateway(factory_setup, array![carol_pub_key].span());
-
-        let mut serialized_message: Array<felt252> = array![];
-        let separator: ByteArray = "Authorize ONCHAINID deployment";
-        separator.serialize(ref serialized_message);
-        setup.accounts.alice_account.contract_address.serialize(ref serialized_message);
         let salt = 'salt_to_use';
-        salt.serialize(ref serialized_message);
-        let signature_expiry: u64 = starknet::get_block_timestamp() + super::YEAR;
-        signature_expiry.serialize(ref serialized_message);
-        let hashed_message = poseidon_hash_span(serialized_message.span());
-        let (r, s) = setup.accounts.carol_key.sign(hashed_message).unwrap();
-        let y_parity = core::ecdsa::recover_public_key(hashed_message, r, s, true)
+        let identity_owner = setup.accounts.alice_account.contract_address;
+        let expiration: u64 = starknet::get_block_timestamp() + super::YEAR;
+        let message = Deployment { identity_owner, salt, expiration };
+
+        let message_hash = message.get_message_hash(setup.gateway.contract_address);
+        let (r, s) = setup.accounts.carol_key.sign(message_hash).unwrap();
+        let y_parity = core::ecdsa::recover_public_key(message_hash, r, s, true)
             .unwrap() == setup
             .accounts
             .carol_key
@@ -1204,17 +1184,14 @@ pub mod revoke_signature {
         let carol_pub_key = factory_setup.accounts.carol_key.public_key;
         let setup = setup_gateway(factory_setup, array![carol_pub_key].span());
 
-        let mut serialized_message: Array<felt252> = array![];
-        let separator: ByteArray = "Authorize ONCHAINID deployment";
-        separator.serialize(ref serialized_message);
-        setup.accounts.alice_account.contract_address.serialize(ref serialized_message);
         let salt = 'salt_to_use';
-        salt.serialize(ref serialized_message);
-        let signature_expiry: u64 = starknet::get_block_timestamp() + super::YEAR;
-        signature_expiry.serialize(ref serialized_message);
-        let hashed_message = poseidon_hash_span(serialized_message.span());
-        let (r, s) = setup.accounts.carol_key.sign(hashed_message).unwrap();
-        let y_parity = core::ecdsa::recover_public_key(hashed_message, r, s, true)
+        let identity_owner = setup.accounts.alice_account.contract_address;
+        let expiration: u64 = starknet::get_block_timestamp() + super::YEAR;
+        let message = Deployment { identity_owner, salt, expiration };
+
+        let message_hash = message.get_message_hash(setup.gateway.contract_address);
+        let (r, s) = setup.accounts.carol_key.sign(message_hash).unwrap();
+        let y_parity = core::ecdsa::recover_public_key(message_hash, r, s, true)
             .unwrap() == setup
             .accounts
             .carol_key
@@ -1245,9 +1222,10 @@ pub mod revoke_signature {
 }
 
 pub mod approve_signature {
-    use core::poseidon::poseidon_hash_span;
     use onchain_id_starknet::gateway::gateway::Gateway;
-    use onchain_id_starknet::gateway::interface::{IGatewayDispatcherTrait, Signature};
+    use onchain_id_starknet::gateway::gateway::Gateway::SNIP12MetadataImpl;
+    use onchain_id_starknet::gateway::interface::{Deployment, IGatewayDispatcherTrait, Signature};
+    use openzeppelin_utils::cryptography::snip12::OffchainMessageHash;
     use snforge_std::signature::SignerTrait;
     use snforge_std::signature::stark_curve::{StarkCurveKeyPairImpl, StarkCurveSignerImpl};
     use snforge_std::{
@@ -1261,18 +1239,14 @@ pub mod approve_signature {
         let factory_setup = setup_factory();
         let carol_pub_key = factory_setup.accounts.carol_key.public_key;
         let setup = setup_gateway(factory_setup, array![carol_pub_key].span());
-
-        let mut serialized_message: Array<felt252> = array![];
-        let separator: ByteArray = "Authorize ONCHAINID deployment";
-        separator.serialize(ref serialized_message);
-        setup.accounts.alice_account.contract_address.serialize(ref serialized_message);
         let salt = 'salt_to_use';
-        salt.serialize(ref serialized_message);
-        let signature_expiry: u64 = starknet::get_block_timestamp() + super::YEAR;
-        signature_expiry.serialize(ref serialized_message);
-        let hashed_message = poseidon_hash_span(serialized_message.span());
-        let (r, s) = setup.accounts.carol_key.sign(hashed_message).unwrap();
-        let y_parity = core::ecdsa::recover_public_key(hashed_message, r, s, true)
+        let identity_owner = setup.accounts.alice_account.contract_address;
+        let expiration: u64 = starknet::get_block_timestamp() + super::YEAR;
+        let message = Deployment { identity_owner, salt, expiration };
+
+        let message_hash = message.get_message_hash(setup.gateway.contract_address);
+        let (r, s) = setup.accounts.carol_key.sign(message_hash).unwrap();
+        let y_parity = core::ecdsa::recover_public_key(message_hash, r, s, true)
             .unwrap() == setup
             .accounts
             .carol_key
@@ -1295,17 +1269,14 @@ pub mod approve_signature {
         let carol_pub_key = factory_setup.accounts.carol_key.public_key;
         let setup = setup_gateway(factory_setup, array![carol_pub_key].span());
 
-        let mut serialized_message: Array<felt252> = array![];
-        let separator: ByteArray = "Authorize ONCHAINID deployment";
-        separator.serialize(ref serialized_message);
-        setup.accounts.alice_account.contract_address.serialize(ref serialized_message);
         let salt = 'salt_to_use';
-        salt.serialize(ref serialized_message);
-        let signature_expiry: u64 = starknet::get_block_timestamp() + super::YEAR;
-        signature_expiry.serialize(ref serialized_message);
-        let hashed_message = poseidon_hash_span(serialized_message.span());
-        let (r, s) = setup.accounts.carol_key.sign(hashed_message).unwrap();
-        let y_parity = core::ecdsa::recover_public_key(hashed_message, r, s, true)
+        let identity_owner = setup.accounts.alice_account.contract_address;
+        let expiration: u64 = starknet::get_block_timestamp() + super::YEAR;
+        let message = Deployment { identity_owner, salt, expiration };
+
+        let message_hash = message.get_message_hash(setup.gateway.contract_address);
+        let (r, s) = setup.accounts.carol_key.sign(message_hash).unwrap();
+        let y_parity = core::ecdsa::recover_public_key(message_hash, r, s, true)
             .unwrap() == setup
             .accounts
             .carol_key
@@ -1325,17 +1296,14 @@ pub mod approve_signature {
         let carol_pub_key = factory_setup.accounts.carol_key.public_key;
         let setup = setup_gateway(factory_setup, array![carol_pub_key].span());
 
-        let mut serialized_message: Array<felt252> = array![];
-        let separator: ByteArray = "Authorize ONCHAINID deployment";
-        separator.serialize(ref serialized_message);
-        setup.accounts.alice_account.contract_address.serialize(ref serialized_message);
         let salt = 'salt_to_use';
-        salt.serialize(ref serialized_message);
-        let signature_expiry: u64 = starknet::get_block_timestamp() + super::YEAR;
-        signature_expiry.serialize(ref serialized_message);
-        let hashed_message = poseidon_hash_span(serialized_message.span());
-        let (r, s) = setup.accounts.carol_key.sign(hashed_message).unwrap();
-        let y_parity = core::ecdsa::recover_public_key(hashed_message, r, s, true)
+        let identity_owner = setup.accounts.alice_account.contract_address;
+        let expiration: u64 = starknet::get_block_timestamp() + super::YEAR;
+        let message = Deployment { identity_owner, salt, expiration };
+
+        let message_hash = message.get_message_hash(setup.gateway.contract_address);
+        let (r, s) = setup.accounts.carol_key.sign(message_hash).unwrap();
+        let y_parity = core::ecdsa::recover_public_key(message_hash, r, s, true)
             .unwrap() == setup
             .accounts
             .carol_key
